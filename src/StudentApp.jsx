@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ChevronLeft, UserPlus, Search, Check, Clock, Waves } from "lucide-react";
 import { CATEGORIES, styles, emptyTotals, loadFont } from "./shared.js";
 import { subJugadores, subRegistros, crearSolicitud } from "./db.js";
-import PlayerBars from "./PlayerBars.jsx";
+import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
 
 export default function StudentApp({ onBack }) {
   const [view, setView] = useState("menu"); // menu | crear | enviado | misStats
@@ -190,6 +190,7 @@ function MisStatsView({ jugadores, loading, totalsFor }) {
               <div style={styles.playerMeta}>{selected.category} · {total} acciones registradas</div>
             </div>
           </div>
+          <StatSummaryTiles totals={totals} />
           <PlayerBars totals={totals} />
         </div>
       </div>
