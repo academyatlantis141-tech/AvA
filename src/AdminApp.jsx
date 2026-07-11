@@ -13,7 +13,7 @@ import {
   aprobarSolicitud, rechazarSolicitud, eliminarJugador,
   crearPartido, eliminarPartido, agregarRegistro, eliminarRegistro,
 } from "./db.js";
-import PlayerBars from "./PlayerBars.jsx";
+import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
 
 export default function AdminApp({ onLogout }) {
   const [tab, setTab] = useState("solicitudes");
@@ -582,6 +582,7 @@ function EstadisticasTab({ players, totalsFor }) {
                   <div style={styles.playerMeta}>{p.category} · {total} acciones</div>
                 </div>
               </div>
+              <StatSummaryTiles totals={p.totals} />
               <PlayerBars totals={p.totals} />
             </div>
           );
