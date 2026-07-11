@@ -296,8 +296,19 @@ function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUn
           setShowMatchPicker(false);
         }}
         onSelect={(id) => { onSelectMatch(id); setShowMatchPicker(false); }}
-        onClose={activeMatch ? () => setShowMatchPicker(false) : null}
+        onClose={() => setShowMatchPicker(false)}
       />
+    );
+  }
+
+  if (!activeMatch) {
+    return (
+      <div>
+        <EmptyState text='Elige o crea un partido/sesión para empezar a registrar estadísticas.' />
+        <button style={styles.primaryBtn} onClick={() => setShowMatchPicker(true)}>
+          <Calendar size={16} /> Elegir partido
+        </button>
+      </div>
     );
   }
 
