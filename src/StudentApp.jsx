@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { ChevronLeft, UserPlus, Search, Check, Clock, Waves } from "lucide-react";
+import { ChevronLeft, UserPlus, Search, Check, Clock, Waves, MessageCircle } from "lucide-react";
 import { CATEGORIES, styles, emptyTotals, loadFont } from "./shared.js";
-import { subJugadores, subRegistros, crearSolicitud } from "./db.js";
+import { subJugadores, subRegistros, subMensajes, crearSolicitud } from "./db.js";
 import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
+import ChatView from "./ChatView.jsx";
 
 export default function StudentApp({ onBack }) {
-  const [view, setView] = useState("menu"); // menu | crear | enviado | misStats
+  const [view, setView] = useState("menu"); // menu | crear | enviado | misStats | chat
   const [jugadores, setJugadores] = useState([]);
   const [registros, setRegistros] = useState([]);
+  const [mensajes, setMensajes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadFont();
     const u1 = subJugadores((data) => { setJugadores(data); setLoading(false); });
     const u2 = subRegistros(setRegistros);
-    return () => { u1(); u2(); };
+    const u3 = subMensajes(setMensajes);
+    return () => { u1(); u2(); u3(); };
   }, []);
 
   const totalsFor = useCallback(
@@ -31,7 +34,7 @@ export default function StudentApp({ onBack }) {
   );
 
   return (
-    <div style={styles.app}>
+    <div style={styles.app} className="atlantis-shell">
       <div style={styles.header}>
         <div style={styles.headerRow}>
           <button style={styles.iconBtn} onClick={() => (view === "menu" ? onBack() : setView("menu"))}>
@@ -56,6 +59,9 @@ export default function StudentApp({ onBack }) {
             totalsFor={totalsFor}
           />
         )}
+        {view === "chat" && (
+          <ChatEntryView jugadores={jugadores} loading={loading} mensajes={mensajes} />
+        )}
       </div>
     </div>
   );
@@ -71,6 +77,10 @@ function MenuView({ setView }) {
       <button style={styles.landingBtn} onClick={() => setView("misStats")}>
         <Search size={22} color="#3FB8AE" />
         Ver mis estadísticas
+      </button>
+      <button style={styles.landingBtn} onClick={() => setView("chat")}>
+        <MessageCircle size={22} color="#7BC67E" />
+        Chatear con mi categoría
       </button>
     </div>
   );
@@ -144,6 +154,93 @@ function EnviadoView({ onBack }) {
       <button style={{ ...styles.ghostBtn, marginTop: 10 }} onClick={onBack}>
         Volver al menú
       </button>
+    </div>
+  );
+}
+
+function ChatEntryView({ jugadores, loading, mensajes }) {
+  const [category, setCategory] = useState("Todas");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(null);
+
+  const filtered = useMemo(() => {
+    let list = jugadores;
+    if (category !== "Todas") list = list.filter((p) => p.category === category);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [jugadores, category, query]);
+
+  if (loading) {
+    return (
+      <div style={styles.emptyState}>
+        <Waves size={26} color="#2B4F5F" />
+        <div style={styles.emptyText}>Cargando...</div>
+      </div>
+    );
+  }
+
+  if (selected) {
+    return (
+      <div>
+        <button style={{ ...styles.ghostBtn, marginBottom: 14 }} onClick={() => setSelected(null)}>
+          ← Salir del chat
+        </button>
+        <ChatView
+          mensajes={mensajes}
+          category={selected.category}
+          authorName={selected.name}
+          authorRole="estudiante"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ ...styles.sectionLabel, marginBottom: 12 }}>
+        Busca tu nombre para entrar al chat de tu categoría.
+      </div>
+      <div style={styles.chipsRow}>
+        {["Todas", ...CATEGORIES].map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategory(c)}
+            style={{ ...styles.chip, ...(category === c ? styles.chipActive : {}) }}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+      <div style={styles.searchWrap}>
+        <Search size={15} color="#7FA0B0" />
+        <input
+          style={styles.searchInput}
+          placeholder="Busca tu nombre..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+      {filtered.length === 0 && (
+        <div style={styles.emptyText}>
+          No encontramos tu nombre. Si acabas de crear tu perfil, espera a que tu profesor(a) lo apruebe.
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {filtered.map((p) => (
+          <div key={p.id} style={{ ...styles.playerRow, cursor: "pointer" }} onClick={() => setSelected(p)}>
+            <div style={styles.avatarSmall}>
+              {p.number ? p.number : p.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div style={styles.playerName}>{p.name}</div>
+              <div style={styles.playerMeta}>{p.category}</div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

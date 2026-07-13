@@ -17,6 +17,14 @@ export const subSolicitudes = (cb) => subscribe("solicitudes", cb);
 export const subJugadores = (cb) => subscribe("jugadores", cb);
 export const subPartidos = (cb) => subscribe("partidos", cb);
 export const subRegistros = (cb) => subscribe("registros", cb);
+export const subMensajes = (cb) => subscribe("mensajes", cb);
+
+export async function enviarMensaje({ category, authorName, authorRole, text }) {
+  return addDoc(collection(db, "mensajes"), {
+    category, authorName, authorRole, text,
+    createdAt: serverTimestamp(), ts: Date.now(),
+  });
+}
 
 export async function crearSolicitud({ name, category, number }) {
   return addDoc(collection(db, "solicitudes"), {

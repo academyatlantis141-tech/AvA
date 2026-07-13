@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users, Trash2, X, Plus, ChevronRight, ChevronLeft, BarChart3, Undo2,
-  Check, Waves, Search, Calendar, FileDown, Inbox, LogOut
+  Check, Waves, Search, Calendar, FileDown, Inbox, LogOut, MessageCircle
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -9,11 +9,12 @@ import {
   todayISO, fmtDate, emptyTotals, loadFont,
 } from "./shared.js";
 import {
-  subSolicitudes, subJugadores, subPartidos, subRegistros,
+  subSolicitudes, subJugadores, subPartidos, subRegistros, subMensajes,
   aprobarSolicitud, rechazarSolicitud, eliminarJugador,
   crearPartido, eliminarPartido, agregarRegistro, eliminarRegistro,
 } from "./db.js";
 import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
+import ChatView from "./ChatView.jsx";
 
 export default function AdminApp({ onLogout }) {
   const [tab, setTab] = useState("solicitudes");
@@ -21,6 +22,7 @@ export default function AdminApp({ onLogout }) {
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [records, setRecords] = useState([]);
+  const [mensajes, setMensajes] = useState([]);
   const [activeMatchId, setActiveMatchId] = useState(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
@@ -28,12 +30,13 @@ export default function AdminApp({ onLogout }) {
   useEffect(() => {
     loadFont();
     let loaded = 0;
-    const mark = () => { loaded += 1; if (loaded >= 4) setReady(true); };
+    const mark = () => { loaded += 1; if (loaded >= 5) setReady(true); };
     const u1 = subSolicitudes((d) => { setSolicitudes(d); mark(); });
     const u2 = subJugadores((d) => { setPlayers(d); mark(); });
     const u3 = subPartidos((d) => { setMatches(d); mark(); });
     const u4 = subRegistros((d) => { setRecords(d); mark(); });
-    return () => { u1(); u2(); u3(); u4(); };
+    const u5 = subMensajes((d) => { setMensajes(d); mark(); });
+    return () => { u1(); u2(); u3(); u4(); u5(); };
   }, []);
 
   const showError = (msg) => {
@@ -106,7 +109,7 @@ export default function AdminApp({ onLogout }) {
   const activeMatch = matches.find((m) => m.id === activeMatchId) || null;
 
   return (
-    <div style={styles.app}>
+    <div style={styles.app} className="atlantis-shell">
       <style>{globalCss}</style>
       <Header
         tab={tab}
@@ -160,6 +163,7 @@ export default function AdminApp({ onLogout }) {
           />
         )}
         {tab === "estadisticas" && <EstadisticasTab players={players} totalsFor={totalsFor} />}
+        {tab === "chat" && <ChatTab mensajes={mensajes} />}
       </div>
       {error && <div style={styles.toastError}>{error}</div>}
       <BottomNav tab={tab} setTab={setTab} pendingCount={solicitudes.length} />
@@ -173,6 +177,7 @@ const TAB_TITLES = {
   registrar: "Registrar",
   historial: "Historial",
   estadisticas: "Estadísticas",
+  chat: "Chat",
 };
 
 function Header({ tab, onExport, hasData, onLogout, pendingCount }) {
@@ -510,6 +515,16 @@ function HistorialTab({ matches, players, totalsFor, onDeleteMatch }) {
 
 /* ---------------- Estadísticas ---------------- */
 
+function ChatTab({ mensajes }) {
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  return (
+    <div>
+      <CategoryChips category={category} setCategory={setCategory} />
+      <ChatView mensajes={mensajes} category={category} authorName="Profesor/a" authorRole="admin" />
+    </div>
+  );
+}
+
 function EstadisticasTab({ players, totalsFor }) {
   const [category, setCategory] = useState("Todas");
   const [query, setQuery] = useState("");
@@ -620,6 +635,7 @@ function BottomNav({ tab, setTab, pendingCount }) {
     { key: "registrar", label: "Registrar", icon: Plus },
     { key: "historial", label: "Historial", icon: Calendar },
     { key: "estadisticas", label: "Stats", icon: BarChart3 },
+    { key: "chat", label: "Chat", icon: MessageCircle },
   ];
   return (
     <div style={styles.bottomNav}>

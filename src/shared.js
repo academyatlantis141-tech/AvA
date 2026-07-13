@@ -41,8 +41,6 @@ export const styles = {
     fontFamily: "'Inter', sans-serif",
     background: "#08141F",
     minHeight: "100vh",
-    maxWidth: 480,
-    margin: "0 auto",
     color: "#F2E9D8",
     display: "flex",
     flexDirection: "column",
@@ -202,12 +200,44 @@ export const styles = {
     background: "#16374B", color: "#D9A544", fontSize: 11, fontWeight: 700,
     padding: "3px 8px", borderRadius: 8,
   },
+  chatMessages: {
+    display: "flex", flexDirection: "column", gap: 8,
+    height: "calc(100vh - 300px)", minHeight: 260,
+    overflowY: "auto", padding: "4px 2px 10px",
+  },
+  bubbleRow: { display: "flex", flexDirection: "column", maxWidth: "80%" },
+  bubbleRowMine: { alignSelf: "flex-end", alignItems: "flex-end" },
+  bubbleRowOther: { alignSelf: "flex-start", alignItems: "flex-start" },
+  bubbleAuthor: { fontSize: 10, color: "#7FA0B0", fontWeight: 700, marginBottom: 2, padding: "0 4px" },
+  bubbleMine: {
+    background: "#3FB8AE", color: "#08141F", borderRadius: "14px 14px 4px 14px",
+    padding: "8px 12px", fontSize: 13.5, fontWeight: 500, wordBreak: "break-word",
+  },
+  bubbleOther: {
+    background: "#16374B", color: "#F2E9D8", borderRadius: "14px 14px 14px 4px",
+    padding: "8px 12px", fontSize: 13.5, fontWeight: 500, wordBreak: "break-word",
+  },
+  bubbleTime: { fontSize: 9, color: "#7FA0B0", marginTop: 2, padding: "0 4px" },
+  chatInputRow: { display: "flex", gap: 8, marginTop: 10 },
+  chatInput: {
+    flex: 1, background: "#0F2A3A", border: "1px solid #2B4F5F", borderRadius: 20,
+    padding: "10px 14px", color: "#F2E9D8", fontSize: 14,
+  },
+  chatSendBtn: {
+    background: "#D9A544", border: "none", borderRadius: "50%", width: 40, height: 40,
+    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
 };
 
 export const globalCss = `
   * { box-sizing: border-box; }
+  html, body, #root { height: 100%; }
   input:focus { outline: 2px solid #3FB8AE; }
   button:focus-visible { outline: 2px solid #D9A544; outline-offset: 2px; }
   button { font-family: inherit; cursor: pointer; }
   ::-webkit-scrollbar { display: none; }
+  .atlantis-shell { max-width: 480px; margin: 0 auto; width: 100%; }
+  @media (min-width: 768px) {
+    .atlantis-shell { max-width: 900px; }
+  }
 `;

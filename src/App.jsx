@@ -45,7 +45,7 @@ export default function App() {
   }
 
   return (
-    <div style={styles.app}>
+    <div style={styles.app} className="atlantis-shell">
       <div style={styles.landingWrap}>
         <img src="/logo.png" alt="Atlantis Academy" style={{ width: 150, height: "auto" }} />
         <div style={{ fontSize: 13, color: "#7FA0B0", marginBottom: 10, marginTop: -6 }}>
@@ -85,7 +85,7 @@ function PinScreen({ onBack, onSuccess }) {
   };
 
   return (
-    <div style={styles.app}>
+    <div style={styles.app} className="atlantis-shell">
       <div style={styles.landingWrap}>
         <Lock size={30} color="#D9A544" />
         <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#F2E9D8" }}>
