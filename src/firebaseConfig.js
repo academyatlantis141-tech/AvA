@@ -15,4 +15,4 @@ export const firebaseConfig = {
 // Este es el código que TÚ (la administradora/el administrador) vas a
 // escribir para entrar al panel de administrador. Cámbialo por uno tuyo
 // antes de publicar la app.
-export const ADMIN_PIN = "1234";
+export const ADMIN_PIN = "0303";
