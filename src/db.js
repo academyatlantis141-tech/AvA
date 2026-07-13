@@ -1,6 +1,6 @@
 import { db } from "./firebase.js";
 import {
-  collection, addDoc, deleteDoc, doc,
+  collection, addDoc, deleteDoc, doc, getDocs, writeBatch,
   onSnapshot, query, orderBy, serverTimestamp,
 } from "firebase/firestore";
 
@@ -72,4 +72,15 @@ export async function agregarRegistro({ playerId, matchId, statKey, result }) {
 
 export async function eliminarRegistro(id) {
   await deleteDoc(doc(db, "registros", id));
+}
+
+export async function restablecerEstadisticas() {
+  const snap = await getDocs(collection(db, "registros"));
+  const docs = snap.docs;
+  const CHUNK = 450; // margen bajo el límite de 500 por lote de Firestore
+  for (let i = 0; i < docs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + CHUNK).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
 }
