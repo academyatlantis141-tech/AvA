@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users, Trash2, X, Plus, ChevronRight, ChevronLeft, BarChart3, Undo2,
-  Check, Waves, Search, Calendar, FileDown, Inbox, LogOut, MessageCircle
+  Check, Waves, Search, Calendar, FileDown, Inbox, LogOut, MessageCircle,
+  AlertTriangle
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -11,7 +12,7 @@ import {
 import {
   subSolicitudes, subJugadores, subPartidos, subRegistros, subMensajes,
   aprobarSolicitud, rechazarSolicitud, eliminarJugador,
-  crearPartido, eliminarPartido, agregarRegistro, eliminarRegistro,
+  crearPartido, eliminarPartido, agregarRegistro, eliminarRegistro, restablecerEstadisticas,
 } from "./db.js";
 import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
 import ChatView from "./ChatView.jsx";
@@ -162,7 +163,15 @@ export default function AdminApp({ onLogout }) {
             onDeleteMatch={(id) => eliminarPartido(id).catch(() => showError("No se pudo eliminar."))}
           />
         )}
-        {tab === "estadisticas" && <EstadisticasTab players={players} totalsFor={totalsFor} />}
+        {tab === "estadisticas" && (
+          <EstadisticasTab
+            players={players}
+            totalsFor={totalsFor}
+            onReset={() =>
+              restablecerEstadisticas().catch(() => showError("No se pudo restablecer."))
+            }
+          />
+        )}
         {tab === "chat" && <ChatTab mensajes={mensajes} />}
       </div>
       {error && <div style={styles.toastError}>{error}</div>}
@@ -525,9 +534,11 @@ function ChatTab({ mensajes }) {
   );
 }
 
-function EstadisticasTab({ players, totalsFor }) {
+function EstadisticasTab({ players, totalsFor, onReset }) {
   const [category, setCategory] = useState("Todas");
   const [query, setQuery] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const filtered = useMemo(() => {
     let list = players;
@@ -558,6 +569,43 @@ function EstadisticasTab({ players, totalsFor }) {
 
   return (
     <div>
+      {!confirmReset ? (
+        <button
+          style={{ ...styles.ghostBtn, width: "100%", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+          onClick={() => setConfirmReset(true)}
+        >
+          <AlertTriangle size={14} /> Restablecer estadísticas
+        </button>
+      ) : (
+        <div style={{ ...styles.card, borderColor: ERROR_COLOR }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
+            <AlertTriangle size={18} color={ERROR_COLOR} style={{ flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 13, color: "#F2E9D8" }}>
+              Esto borra <b>todos</b> los registros de saque, ataque, bloqueo y recibo de
+              <b> todas las jugadoras y partidos</b>. No se puede deshacer. Las jugadoras y
+              los partidos se conservan.
+            </div>
+          </div>
+          <div style={styles.rowGap}>
+            <button
+              style={styles.dangerBtn}
+              disabled={resetting}
+              onClick={async () => {
+                setResetting(true);
+                await onReset();
+                setResetting(false);
+                setConfirmReset(false);
+              }}
+            >
+              {resetting ? "Borrando..." : "Sí, borrar todo"}
+            </button>
+            <button style={styles.ghostBtnSmall} onClick={() => setConfirmReset(false)} disabled={resetting}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={styles.chipsRow}>
         {["Todas", ...CATEGORIES].map((c) => (
           <button key={c} onClick={() => setCategory(c)} style={{ ...styles.chip, ...(category === c ? styles.chipActive : {}) }}>{c}</button>
