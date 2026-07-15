@@ -1,21 +1,24 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Users, Trash2, X, Plus, ChevronRight, ChevronLeft, BarChart3, Undo2,
   Check, Waves, Search, Calendar, FileDown, Inbox, LogOut, MessageCircle,
-  AlertTriangle
+  AlertTriangle, Megaphone, Trophy, CalendarCheck, CalendarX
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   CATEGORIES, FUNDAMENTOS, ACIERTO_COLOR, ERROR_COLOR, styles, globalCss,
-  todayISO, fmtDate, emptyTotals, loadFont,
+  todayISO, fmtDate, emptyTotals, loadFont, requestNotificationPermission, notify,
 } from "./shared.js";
 import {
-  subSolicitudes, subJugadores, subPartidos, subRegistros, subMensajes,
+  subSolicitudes, subJugadores, subPartidos, subRegistros, subMensajes, subAnuncios, subAsistencias,
   aprobarSolicitud, rechazarSolicitud, eliminarJugador,
   crearPartido, eliminarPartido, agregarRegistro, eliminarRegistro, restablecerEstadisticas,
+  crearAnuncio, eliminarAnuncio, marcarAsistencia, marcarMVP,
 } from "./db.js";
 import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
 import ChatView from "./ChatView.jsx";
+import Avatar from "./Avatar.jsx";
+import ProgressChart from "./ProgressChart.jsx";
 
 export default function AdminApp({ onLogout }) {
   const [tab, setTab] = useState("solicitudes");
@@ -24,21 +27,54 @@ export default function AdminApp({ onLogout }) {
   const [matches, setMatches] = useState([]);
   const [records, setRecords] = useState([]);
   const [mensajes, setMensajes] = useState([]);
+  const [anuncios, setAnuncios] = useState([]);
+  const [asistencias, setAsistencias] = useState([]);
   const [activeMatchId, setActiveMatchId] = useState(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     loadFont();
+    requestNotificationPermission();
     let loaded = 0;
-    const mark = () => { loaded += 1; if (loaded >= 5) setReady(true); };
+    const mark = () => { loaded += 1; if (loaded >= 7) setReady(true); };
     const u1 = subSolicitudes((d) => { setSolicitudes(d); mark(); });
     const u2 = subJugadores((d) => { setPlayers(d); mark(); });
     const u3 = subPartidos((d) => { setMatches(d); mark(); });
     const u4 = subRegistros((d) => { setRecords(d); mark(); });
     const u5 = subMensajes((d) => { setMensajes(d); mark(); });
-    return () => { u1(); u2(); u3(); u4(); u5(); };
+    const u6 = subAnuncios((d) => { setAnuncios(d); mark(); });
+    const u7 = subAsistencias((d) => { setAsistencias(d); mark(); });
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); };
   }, []);
+
+  // Notificaciones: solicitudes nuevas
+  const seenSolicitudes = useRef(null);
+  useEffect(() => {
+    const ids = new Set(solicitudes.map((s) => s.id));
+    if (seenSolicitudes.current) {
+      solicitudes.forEach((s) => {
+        if (!seenSolicitudes.current.has(s.id)) {
+          notify("Nueva solicitud de perfil", `${s.name} · ${s.category}`);
+        }
+      });
+    }
+    seenSolicitudes.current = ids;
+  }, [solicitudes]);
+
+  // Notificaciones: mensajes nuevos de chat (de cualquier categoría, que no sean del admin)
+  const seenMensajes = useRef(null);
+  useEffect(() => {
+    const ids = new Set(mensajes.map((m) => m.id));
+    if (seenMensajes.current) {
+      mensajes.forEach((m) => {
+        if (!seenMensajes.current.has(m.id) && m.authorRole !== "admin") {
+          notify(`${m.authorName} · ${m.category}`, m.text);
+        }
+      });
+    }
+    seenMensajes.current = ids;
+  }, [mensajes]);
 
   const showError = (msg) => {
     setError(msg);
@@ -66,7 +102,7 @@ export default function AdminApp({ onLogout }) {
         players.map((p) => ({ Nombre: p.name, Número: p.number || "", Categoría: p.category }))
       ), "Jugadoras");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-        matches.map((m) => ({ Fecha: fmtDate(m.date), Partido: m.label, Categoría: m.category }))
+        matches.map((m) => ({ Fecha: fmtDate(m.date), Partido: m.label, Categoría: m.category, MVP: m.mvpName || "" }))
       ), "Partidos");
       const detalle = records.map((r) => {
         const p = players.find((pl) => pl.id === r.playerId);
@@ -87,6 +123,10 @@ export default function AdminApp({ onLogout }) {
           row[`${f.label} Acierto`] = t[f.key].acierto;
           row[`${f.label} Error`] = t[f.key].error;
         });
+        row["MVPs"] = matches.filter((m) => m.mvpId === p.id).length;
+        const misAsist = asistencias.filter((a) => a.playerId === p.id);
+        const presentes = misAsist.filter((a) => a.presente).length;
+        row["Asistencia"] = misAsist.length ? `${presentes}/${misAsist.length}` : "";
         return row;
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), "Resumen");
@@ -160,16 +200,28 @@ export default function AdminApp({ onLogout }) {
             matches={matches}
             players={players}
             totalsFor={totalsFor}
+            asistencias={asistencias}
             onDeleteMatch={(id) => eliminarPartido(id).catch(() => showError("No se pudo eliminar."))}
+            onSetMVP={(matchId, player) => marcarMVP(matchId, player).catch(() => showError("No se pudo guardar el MVP."))}
+            onSetAsistencia={(payload) => marcarAsistencia(payload).catch(() => showError("No se pudo guardar la asistencia."))}
           />
         )}
         {tab === "estadisticas" && (
           <EstadisticasTab
             players={players}
             totalsFor={totalsFor}
+            matches={matches}
+            asistencias={asistencias}
             onReset={() =>
               restablecerEstadisticas().catch(() => showError("No se pudo restablecer."))
             }
+          />
+        )}
+        {tab === "anuncios" && (
+          <AnunciosTab
+            anuncios={anuncios}
+            onCreate={(payload) => crearAnuncio(payload).catch(() => showError("No se pudo publicar."))}
+            onDelete={(id) => eliminarAnuncio(id).catch(() => showError("No se pudo eliminar."))}
           />
         )}
         {tab === "chat" && <ChatTab mensajes={mensajes} />}
@@ -184,8 +236,9 @@ const TAB_TITLES = {
   solicitudes: "Solicitudes",
   equipo: "Mi Equipo",
   registrar: "Registrar",
-  historial: "Historial",
+  historial: "Partidos",
   estadisticas: "Estadísticas",
+  anuncios: "Anuncios",
   chat: "Chat",
 };
 
@@ -222,7 +275,7 @@ function SolicitudesTab({ solicitudes, onApprove, onReject }) {
       {solicitudes.map((s) => (
         <div key={s.id} style={styles.card}>
           <div style={styles.playerRow}>
-            <div style={styles.avatarSmall}>{s.number || s.name.charAt(0).toUpperCase()}</div>
+            <Avatar player={s} />
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{s.name}</div>
               <div style={styles.playerMeta}>{s.category}</div>
@@ -264,7 +317,7 @@ function EquipoTab({ players, onDelete }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((p) => (
           <div key={p.id} style={styles.playerRow}>
-            <div style={styles.avatarSmall}>{p.number || p.name.charAt(0).toUpperCase()}</div>
+            <Avatar player={p} />
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{p.name}</div>
               <div style={styles.playerMeta}>{p.category}</div>
@@ -348,7 +401,7 @@ function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUn
           return (
             <div key={p.id} style={styles.card}>
               <div style={{ ...styles.playerRow, cursor: "pointer" }} onClick={() => setExpandedId(isOpen ? null : p.id)}>
-                <div style={styles.avatarSmall}>{p.number || p.name.charAt(0).toUpperCase()}</div>
+                <Avatar player={p} />
                 <div style={{ flex: 1 }}>
                   <div style={styles.playerName}>{p.name}</div>
                   <div style={styles.playerMeta}>
@@ -463,66 +516,125 @@ function MatchPicker({ matches, onCreate, onSelect, onClose }) {
   );
 }
 
-/* ---------------- Historial ---------------- */
+/* ---------------- Partidos / Historial (con MVP, asistencia y calendario) ---------------- */
 
-function HistorialTab({ matches, players, totalsFor, onDeleteMatch }) {
+function HistorialTab({ matches, players, totalsFor, asistencias, onDeleteMatch, onSetMVP, onSetAsistencia }) {
   const [openId, setOpenId] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
+  const today = todayISO();
   const sorted = [...matches].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const proximos = sorted.filter((m) => m.date >= today);
+  const pasados = sorted.filter((m) => m.date < today);
 
   if (sorted.length === 0) {
     return <EmptyState text='Todavía no registras partidos. Ve a "Registrar" para crear el primero.' />;
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {sorted.map((m) => {
-        const isOpen = openId === m.id;
-        const roster = players.filter((p) => p.category === m.category);
-        return (
-          <div key={m.id} style={styles.card}>
-            <div style={styles.playerRow} onClick={() => setOpenId(isOpen ? null : m.id)}>
-              <div style={{ ...styles.avatarSmall, borderColor: "#3FB8AE", color: "#3FB8AE" }}><Calendar size={16} /></div>
-              <div style={{ flex: 1, cursor: "pointer" }}>
-                <div style={styles.playerName}>{m.label}</div>
-                <div style={styles.playerMeta}>{fmtDate(m.date)} · {m.category}</div>
-              </div>
-              {confirmId === m.id ? (
-                <div style={styles.rowGap}>
-                  <button style={styles.dangerBtn} onClick={(e) => { e.stopPropagation(); onDeleteMatch(m.id); setConfirmId(null); }}>Eliminar</button>
-                  <button style={styles.ghostBtnSmall} onClick={(e) => { e.stopPropagation(); setConfirmId(null); }}><X size={14} /></button>
-                </div>
-              ) : (
-                <button style={styles.iconBtn} onClick={(e) => { e.stopPropagation(); setConfirmId(m.id); }}>
-                  <Trash2 size={16} color="#7FA0B0" />
-                </button>
-              )}
-              <ChevronRight size={18} color="#7FA0B0" style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+  const renderMatch = (m) => {
+    const isOpen = openId === m.id;
+    const roster = players.filter((p) => p.category === m.category);
+    const upcoming = m.date >= today;
+    return (
+      <div key={m.id} style={styles.card}>
+        <div style={styles.playerRow} onClick={() => setOpenId(isOpen ? null : m.id)}>
+          <div style={{ ...styles.avatarSmall, borderColor: upcoming ? "#3FB8AE" : "#D9A544", color: upcoming ? "#3FB8AE" : "#D9A544" }}>
+            <Calendar size={16} />
+          </div>
+          <div style={{ flex: 1, cursor: "pointer" }}>
+            <div style={styles.playerName}>{m.label}</div>
+            <div style={styles.playerMeta}>
+              {fmtDate(m.date)} · {m.category}{upcoming ? " · Próximo" : ""}
             </div>
-
-            {isOpen && (
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                {roster.map((p) => {
-                  const t = totalsFor(p.id, m.id);
-                  const total = FUNDAMENTOS.reduce((s, f) => s + t[f.key].acierto + t[f.key].error, 0);
-                  if (total === 0) return null;
-                  return (
-                    <div key={p.id}>
-                      <div style={styles.playerMeta}>{p.name}</div>
-                      <PlayerBars totals={t} />
-                    </div>
-                  );
-                })}
+            {m.mvpName && (
+              <div style={{ fontSize: 11, color: "#D9A544", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                <Trophy size={11} /> MVP: {m.mvpName}
               </div>
             )}
           </div>
-        );
-      })}
+          {confirmId === m.id ? (
+            <div style={styles.rowGap}>
+              <button style={styles.dangerBtn} onClick={(e) => { e.stopPropagation(); onDeleteMatch(m.id); setConfirmId(null); }}>Eliminar</button>
+              <button style={styles.ghostBtnSmall} onClick={(e) => { e.stopPropagation(); setConfirmId(null); }}><X size={14} /></button>
+            </div>
+          ) : (
+            <button style={styles.iconBtn} onClick={(e) => { e.stopPropagation(); setConfirmId(m.id); }}>
+              <Trash2 size={16} color="#7FA0B0" />
+            </button>
+          )}
+          <ChevronRight size={18} color="#7FA0B0" style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+        </div>
+
+        {isOpen && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+            {roster.length === 0 && <div style={styles.emptyText}>No hay jugadoras en esta categoría todavía.</div>}
+            {roster.map((p) => {
+              const t = totalsFor(p.id, m.id);
+              const total = FUNDAMENTOS.reduce((s, f) => s + t[f.key].acierto + t[f.key].error, 0);
+              const asistRecord = asistencias.find((a) => a.matchId === m.id && a.playerId === p.id);
+              const isMVP = m.mvpId === p.id;
+              return (
+                <div key={p.id}>
+                  <div style={styles.playerRowInner}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Avatar player={p} size={30} />
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#F2E9D8" }}>{p.name}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <button
+                        style={{
+                          ...styles.attendanceBtn,
+                          ...(asistRecord?.presente ? styles.attendancePresente : {}),
+                        }}
+                        onClick={() => onSetAsistencia({ playerId: p.id, matchId: m.id, category: m.category, date: m.date, presente: true })}
+                      >
+                        <CalendarCheck size={12} /> Presente
+                      </button>
+                      <button
+                        style={{
+                          ...styles.attendanceBtn,
+                          ...(asistRecord && !asistRecord.presente ? styles.attendanceAusente : {}),
+                        }}
+                        onClick={() => onSetAsistencia({ playerId: p.id, matchId: m.id, category: m.category, date: m.date, presente: false })}
+                      >
+                        <CalendarX size={12} /> Ausente
+                      </button>
+                      <button
+                        style={{ ...styles.mvpBtn, ...(isMVP ? styles.mvpBtnActive : {}) }}
+                        onClick={() => onSetMVP(m.id, isMVP ? null : p)}
+                      >
+                        <Trophy size={12} /> MVP
+                      </button>
+                    </div>
+                  </div>
+                  {total > 0 && <PlayerBars totals={t} />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {proximos.length > 0 && (
+        <>
+          <div style={{ ...styles.sectionLabel, marginBottom: 10 }}>Próximos</div>
+          {proximos.map(renderMatch)}
+        </>
+      )}
+      {pasados.length > 0 && (
+        <>
+          <div style={{ ...styles.sectionLabel, marginTop: proximos.length ? 10 : 0, marginBottom: 10 }}>Pasados</div>
+          {pasados.map(renderMatch)}
+        </>
+      )}
     </div>
   );
 }
 
-/* ---------------- Estadísticas ---------------- */
+/* ---------------- Chat ---------------- */
 
 function ChatTab({ mensajes }) {
   const [category, setCategory] = useState(CATEGORIES[0]);
@@ -534,11 +646,75 @@ function ChatTab({ mensajes }) {
   );
 }
 
-function EstadisticasTab({ players, totalsFor, onReset }) {
+/* ---------------- Anuncios ---------------- */
+
+function AnunciosTab({ anuncios, onCreate, onDelete }) {
+  const [category, setCategory] = useState("Todas");
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
+
+  const sorted = [...anuncios].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  const publish = async () => {
+    if (!text.trim()) return;
+    setSending(true);
+    await onCreate({ text: text.trim(), category });
+    setText("");
+    setSending(false);
+  };
+
+  return (
+    <div>
+      <div style={styles.card}>
+        <div style={{ ...styles.sectionLabel, marginBottom: 8 }}>Nuevo anuncio para:</div>
+        <div style={styles.chipsRow}>
+          {["Todas", ...CATEGORIES].map((c) => (
+            <button key={c} onClick={() => setCategory(c)} style={{ ...styles.chip, ...(category === c ? styles.chipActive : {}) }}>{c}</button>
+          ))}
+        </div>
+        <textarea
+          style={{ ...styles.input, minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
+          placeholder="Escribe tu anuncio..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <button style={styles.primaryBtn} onClick={publish} disabled={sending}>
+          <Megaphone size={16} /> {sending ? "Publicando..." : "Publicar"}
+        </button>
+      </div>
+
+      {sorted.length === 0 && <EmptyState text="Todavía no has publicado ningún anuncio." />}
+      {sorted.map((a) => (
+        <div key={a.id} style={styles.announcementCard}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={styles.announcementCategory}>{a.category === "Todas" ? "Toda la academia" : a.category}</div>
+            {confirmId === a.id ? (
+              <div style={styles.rowGap}>
+                <button style={styles.dangerBtn} onClick={() => { onDelete(a.id); setConfirmId(null); }}>Eliminar</button>
+                <button style={styles.ghostBtnSmall} onClick={() => setConfirmId(null)}><X size={14} /></button>
+              </div>
+            ) : (
+              <button style={styles.iconBtn} onClick={() => setConfirmId(a.id)}>
+                <Trash2 size={14} color="#7FA0B0" />
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize: 14, color: "#F2E9D8", marginTop: 2 }}>{a.text}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Estadísticas ---------------- */
+
+function EstadisticasTab({ players, totalsFor, matches, asistencias, onReset }) {
   const [category, setCategory] = useState("Todas");
   const [query, setQuery] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   const filtered = useMemo(() => {
     let list = players;
@@ -636,17 +812,45 @@ function EstadisticasTab({ players, totalsFor, onReset }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((p) => {
           const total = FUNDAMENTOS.reduce((s, f) => s + p.totals[f.key].acierto + p.totals[f.key].error, 0);
+          const misPartidos = matches.filter((m) => m.category === p.category);
+          const mvpCount = misPartidos.filter((m) => m.mvpId === p.id).length;
+          const misAsist = asistencias.filter((a) => a.playerId === p.id);
+          const presentes = misAsist.filter((a) => a.presente).length;
+          const asistPct = misAsist.length ? Math.round((presentes / misAsist.length) * 100) : null;
+          const isOpen = expandedId === p.id;
           return (
             <div key={p.id} style={styles.card}>
-              <div style={styles.playerRow}>
-                <div style={styles.avatarSmall}>{p.number || p.name.charAt(0).toUpperCase()}</div>
+              <div style={{ ...styles.playerRow, cursor: "pointer" }} onClick={() => setExpandedId(isOpen ? null : p.id)}>
+                <Avatar player={p} />
                 <div style={{ flex: 1 }}>
                   <div style={styles.playerName}>{p.name}</div>
                   <div style={styles.playerMeta}>{p.category} · {total} acciones</div>
                 </div>
+                <ChevronRight size={18} color="#7FA0B0" style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
               </div>
+
+              {(mvpCount > 0 || asistPct !== null) && (
+                <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                  {mvpCount > 0 && (
+                    <div style={{ ...styles.mvpBtn, ...styles.mvpBtnActive }}>
+                      <Trophy size={13} /> MVP x{mvpCount}
+                    </div>
+                  )}
+                  {asistPct !== null && (
+                    <div style={styles.attendanceBtn}>
+                      <CalendarCheck size={13} /> Asistencia {asistPct}% ({presentes}/{misAsist.length})
+                    </div>
+                  )}
+                </div>
+              )}
+
               <StatSummaryTiles totals={p.totals} />
-              <PlayerBars totals={p.totals} />
+              {isOpen && (
+                <>
+                  <PlayerBars totals={p.totals} />
+                  <ProgressChart playerId={p.id} matches={misPartidos} totalsFor={totalsFor} />
+                </>
+              )}
             </div>
           );
         })}
@@ -681,17 +885,18 @@ function BottomNav({ tab, setTab, pendingCount }) {
     { key: "solicitudes", label: "Solicitudes", icon: Inbox, badge: pendingCount },
     { key: "equipo", label: "Equipo", icon: Users },
     { key: "registrar", label: "Registrar", icon: Plus },
-    { key: "historial", label: "Historial", icon: Calendar },
+    { key: "historial", label: "Partidos", icon: Calendar },
     { key: "estadisticas", label: "Stats", icon: BarChart3 },
+    { key: "anuncios", label: "Anuncios", icon: Megaphone },
     { key: "chat", label: "Chat", icon: MessageCircle },
   ];
   return (
-    <div style={styles.bottomNav}>
+    <div style={{ ...styles.bottomNav, overflowX: "auto" }}>
       {items.map((it) => {
         const Icon = it.icon;
         const active = tab === it.key;
         return (
-          <button key={it.key} onClick={() => setTab(it.key)} style={{ ...styles.navBtn, color: active ? "#D9A544" : "#7FA0B0", position: "relative" }}>
+          <button key={it.key} onClick={() => setTab(it.key)} style={{ ...styles.navBtn, flex: "0 0 66px", color: active ? "#D9A544" : "#7FA0B0", position: "relative" }}>
             <Icon size={18} strokeWidth={active ? 2.4 : 2} />
             {!!it.badge && (
               <span style={{ position: "absolute", top: -2, right: "28%", background: "#E2664B", color: "#08141F", fontSize: 9, fontWeight: 800, borderRadius: 8, padding: "1px 5px" }}>

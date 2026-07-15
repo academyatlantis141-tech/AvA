@@ -26,6 +26,49 @@ export function emptyTotals() {
   return t;
 }
 
+export function resizeImageToBase64(file, maxSize = 200) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("No se pudo procesar la imagen"));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height) {
+          if (width > maxSize) { height = Math.round((height * maxSize) / width); width = maxSize; }
+        } else {
+          if (height > maxSize) { width = Math.round((width * maxSize) / height); height = maxSize; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.75));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+export function requestNotificationPermission() {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+export function notify(title, body) {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission !== "granted") return;
+  try {
+    new Notification(title, { body, icon: "/logo.png", badge: "/logo.png" });
+  } catch (e) {
+    // algunos navegadores bloquean Notification directo en móvil; se ignora en silencio
+  }
+}
 export function loadFont() {
   if (document.getElementById("atlantis-fonts")) return;
   const link = document.createElement("link");
@@ -226,6 +269,33 @@ export const styles = {
   chatSendBtn: {
     background: "#D9A544", border: "none", borderRadius: "50%", width: 40, height: 40,
     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
+  attendanceBtn: {
+    display: "flex", alignItems: "center", gap: 4, border: "1.5px solid #2B4F5F",
+    background: "#08141F", borderRadius: 8, padding: "5px 9px", fontSize: 11, fontWeight: 700,
+  },
+  attendancePresente: { borderColor: ACIERTO_COLOR, color: ACIERTO_COLOR },
+  attendanceAusente: { borderColor: ERROR_COLOR, color: ERROR_COLOR },
+  mvpBtn: {
+    display: "flex", alignItems: "center", gap: 4, border: "1.5px solid #2B4F5F",
+    background: "#08141F", borderRadius: 8, padding: "5px 9px", fontSize: 11, fontWeight: 700, color: "#7FA0B0",
+  },
+  mvpBtnActive: { borderColor: "#D9A544", color: "#D9A544", background: "#16374B" },
+  playerRowInner: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 0" },
+  chartWrap: { marginTop: 12, background: "#08141F", borderRadius: 10, padding: "8px 4px" },
+  announcementCard: { background: "#0F2A3A", border: "1px solid #163B4F", borderRadius: 12, padding: 12, marginBottom: 10 },
+  announcementCategory: {
+    display: "inline-block", fontSize: 10, fontWeight: 700, color: "#D9A544",
+    background: "#16374B", borderRadius: 6, padding: "2px 7px", marginBottom: 6,
+  },
+  calendarItem: {
+    display: "flex", alignItems: "center", gap: 12, background: "#0F2A3A", border: "1px solid #163B4F",
+    borderRadius: 12, padding: 12, marginBottom: 10,
+  },
+  calendarItemUpcoming: { borderColor: "#3FB8AE" },
+  calendarDateBox: {
+    width: 44, height: 44, borderRadius: 10, background: "#16374B", display: "flex",
+    flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
 };
 
