@@ -874,7 +874,9 @@ function CategoryChips({ category, setCategory }) {
 function EmptyState({ text }) {
   return (
     <div style={styles.emptyState}>
-      <Waves size={26} color="#2B4F5F" />
+      <div style={styles.emptyIconWrap}>
+        <Waves size={26} color="#3FB8AE" />
+      </div>
       <div style={styles.emptyText}>{text}</div>
     </div>
   );
@@ -896,7 +898,17 @@ function BottomNav({ tab, setTab, pendingCount }) {
         const Icon = it.icon;
         const active = tab === it.key;
         return (
-          <button key={it.key} onClick={() => setTab(it.key)} style={{ ...styles.navBtn, flex: "0 0 66px", color: active ? "#D9A544" : "#7FA0B0", position: "relative" }}>
+          <button
+            key={it.key}
+            onClick={() => setTab(it.key)}
+            style={{
+              ...styles.navBtn,
+              ...(active ? styles.navBtnActive : {}),
+              flex: "0 0 68px",
+              color: active ? "#D9A544" : "#7FA0B0",
+              position: "relative",
+            }}
+          >
             <Icon size={18} strokeWidth={active ? 2.4 : 2} />
             {!!it.badge && (
               <span style={{ position: "absolute", top: -2, right: "28%", background: "#E2664B", color: "#08141F", fontSize: 9, fontWeight: 800, borderRadius: 8, padding: "1px 5px" }}>

@@ -82,7 +82,7 @@ export function loadFont() {
 export const styles = {
   app: {
     fontFamily: "'Inter', sans-serif",
-    background: "#08141F",
+    background: "radial-gradient(ellipse 900px 500px at 50% -10%, rgba(63,184,174,0.16), transparent 60%), #08141F",
     minHeight: "100vh",
     color: "#F2E9D8",
     display: "flex",
@@ -98,9 +98,10 @@ export const styles = {
     background: "#08141F",
   },
   header: {
-    background: "linear-gradient(180deg, #0F2A3A 0%, #08141F 100%)",
+    background: "linear-gradient(180deg, #123449 0%, #0A1C28 100%)",
     padding: "18px 18px 14px",
-    borderBottom: "1px solid #163B4F",
+    borderBottom: "1px solid rgba(217,165,68,0.25)",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
     position: "sticky",
     top: 0,
     zIndex: 10,
@@ -136,7 +137,10 @@ export const styles = {
     display: "flex", alignItems: "center", gap: 6, background: "#D9A544", color: "#08141F",
     border: "none", borderRadius: 10, padding: "8px 12px", fontSize: 13, fontWeight: 700,
   },
-  card: { background: "#0F2A3A", border: "1px solid #163B4F", borderRadius: 14, padding: 14, marginBottom: 12 },
+  card: {
+    background: "#0F2A3A", border: "1px solid #163B4F", borderRadius: 14, padding: 14,
+    marginBottom: 12, boxShadow: "0 4px 14px rgba(0,0,0,0.22)",
+  },
   input: {
     width: "100%", background: "#08141F", border: "1px solid #2B4F5F", borderRadius: 10,
     padding: "10px 12px", color: "#F2E9D8", fontSize: 14, marginBottom: 10,
@@ -145,7 +149,7 @@ export const styles = {
   primaryBtn: {
     display: "flex", alignItems: "center", gap: 6, justifyContent: "center", flex: 1,
     background: "#3FB8AE", color: "#08141F", border: "none", borderRadius: 10,
-    padding: "10px 12px", fontSize: 13, fontWeight: 700,
+    padding: "10px 12px", fontSize: 13, fontWeight: 700, boxShadow: "0 4px 12px rgba(63,184,174,0.25)",
   },
   ghostBtn: {
     background: "transparent", color: "#7FA0B0", border: "1px solid #2B4F5F", borderRadius: 10,
@@ -222,10 +226,29 @@ export const styles = {
   barTrack: { flex: 1, height: 8, background: "#08141F", borderRadius: 4, overflow: "hidden", display: "flex" },
   barFillSplit: { height: "100%", transition: "width .3s" },
   barVal: { width: 34, textAlign: "right", fontSize: 11, fontWeight: 700, color: "#F2E9D8" },
-  emptyState: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "40px 20px", textAlign: "center" },
-  emptyText: { fontSize: 13, color: "#7FA0B0", maxWidth: 240 },
-  bottomNav: { position: "sticky", bottom: 0, display: "flex", background: "#0F2A3A", borderTop: "1px solid #163B4F", padding: "8px 0 12px" },
-  navBtn: { flex: 1, background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center" },
+  emptyState: {
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 14, padding: "40px 20px", textAlign: "center",
+    minHeight: "50vh", maxWidth: 340, margin: "0 auto",
+  },
+  emptyIconWrap: {
+    width: 64, height: 64, borderRadius: "50%",
+    background: "radial-gradient(circle, rgba(63,184,174,0.18), transparent 70%)",
+    border: "1px solid #1B4257",
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  emptyText: { fontSize: 14, color: "#8FA9B8", maxWidth: 260, lineHeight: 1.5 },
+  bottomNav: {
+    position: "sticky", bottom: 0, display: "flex", background: "#0C2431",
+    borderTop: "1px solid rgba(217,165,68,0.2)", boxShadow: "0 -6px 18px rgba(0,0,0,0.3)",
+    padding: "8px 6px 12px", gap: 4,
+  },
+  navBtn: {
+    flex: 1, background: "transparent", border: "none", borderRadius: 12,
+    display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px",
+    transition: "background .15s",
+  },
+  navBtnActive: { background: "rgba(217,165,68,0.12)" },
   toastError: {
     position: "absolute", bottom: 80, left: 16, right: 16, background: "#E2664B", color: "#08141F",
     padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, textAlign: "center", zIndex: 30,
@@ -235,9 +258,10 @@ export const styles = {
     justifyContent: "center", padding: 24, gap: 16, textAlign: "center",
   },
   landingBtn: {
-    width: "100%", maxWidth: 300, padding: "16px", borderRadius: 14, border: "1.5px solid #2B4F5F",
-    background: "#0F2A3A", color: "#F2E9D8", fontSize: 15, fontWeight: 700, display: "flex",
-    flexDirection: "column", alignItems: "center", gap: 8,
+    width: "100%", maxWidth: 320, padding: "16px 18px", borderRadius: 16, border: "1px solid #1B4257",
+    background: "linear-gradient(135deg, #123449, #0D2938)", color: "#F2E9D8", fontSize: 15, fontWeight: 700,
+    display: "flex", flexDirection: "row", alignItems: "center", gap: 14, textAlign: "left",
+    boxShadow: "0 6px 16px rgba(0,0,0,0.28)", transition: "transform .1s",
   },
   pendingBadge: {
     background: "#16374B", color: "#D9A544", fontSize: 11, fontWeight: 700,
