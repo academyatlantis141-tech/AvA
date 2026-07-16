@@ -517,6 +517,11 @@ function CalendarView({ partidos }) {
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{m.label}</div>
               <div style={styles.playerMeta}>{m.category}{upcoming ? " · Próximo" : ""}</div>
+              {(m.setsNosotros > 0 || m.setsRival > 0) && (
+                <div style={{ fontSize: 12, color: "#3FB8AE", marginTop: 2, fontWeight: 700 }}>
+                  Sets: {m.setsNosotros || 0}-{m.setsRival || 0}
+                </div>
+              )}
               {m.mvpName && (
                 <div style={{ fontSize: 11, color: "#D9A544", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                   <Trophy size={11} /> MVP: {m.mvpName}

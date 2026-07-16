@@ -58,6 +58,7 @@ export async function eliminarJugador(id) {
 export async function crearPartido({ label, date, category }) {
   const ref = await addDoc(collection(db, "partidos"), {
     label, date, category, mvpId: "", mvpName: "",
+    puntosNosotros: 0, puntosRival: 0, setsNosotros: 0, setsRival: 0, sets: [],
     createdAt: serverTimestamp(), ts: Date.now(),
   });
   return ref.id;
@@ -72,6 +73,10 @@ export async function marcarMVP(matchId, player) {
     mvpId: player ? player.id : "",
     mvpName: player ? player.name : "",
   });
+}
+
+export async function actualizarMarcador(matchId, data) {
+  await updateDoc(doc(db, "partidos", matchId), data);
 }
 
 export async function agregarRegistro({ playerId, matchId, statKey, result }) {

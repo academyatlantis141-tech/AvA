@@ -331,6 +331,24 @@ export const styles = {
     width: 44, height: 44, borderRadius: 10, background: "#16374B", display: "flex",
     flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
+  scoreboardWrap: {
+    background: "#08141F", border: "1px solid #1B4257", borderRadius: 14, padding: "14px 12px", marginBottom: 14,
+  },
+  scoreboardRow: { display: "flex", alignItems: "center", justifyContent: "space-around", gap: 8 },
+  scoreboardSide: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: 1 },
+  scoreboardLabel: { fontSize: 11, fontWeight: 700, color: "#7FA0B0", textTransform: "uppercase", letterSpacing: 0.5 },
+  scoreboardNum: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 40, color: "#F2E9D8", lineHeight: 1 },
+  scoreboardBtns: { display: "flex", gap: 8 },
+  scoreboardBtn: {
+    width: 34, height: 34, borderRadius: "50%", border: "1px solid #2B4F5F", background: "#0F2A3A",
+    color: "#F2E9D8", fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  scoreboardVs: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#D9A544", padding: "0 4px" },
+  scoreboardSets: { textAlign: "center", fontSize: 13, color: "#D9A544", fontWeight: 700, marginTop: 12 },
+  setChip: {
+    display: "inline-block", background: "#16374B", color: "#9FBAC8", fontSize: 11, fontWeight: 600,
+    borderRadius: 6, padding: "2px 7px", marginRight: 5, marginTop: 6,
+  },
 };
 
 export const globalCss = `

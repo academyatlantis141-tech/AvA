@@ -13,7 +13,7 @@ import {
   subSolicitudes, subJugadores, subPartidos, subRegistros, subMensajes, subAnuncios, subAsistencias,
   aprobarSolicitud, rechazarSolicitud, eliminarJugador,
   crearPartido, eliminarPartido, agregarRegistro, eliminarRegistro, restablecerEstadisticas,
-  crearAnuncio, eliminarAnuncio, marcarAsistencia, marcarMVP,
+  crearAnuncio, eliminarAnuncio, marcarAsistencia, marcarMVP, actualizarMarcador,
 } from "./db.js";
 import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
 import ChatView from "./ChatView.jsx";
@@ -196,6 +196,7 @@ export default function AdminApp({ onLogout }) {
                   setActiveMatchId(id);
                 }}
                 onSelectMatch={setActiveMatchId}
+                onUpdateScore={(data) => actualizarMarcador(activeMatchId, data).catch(() => showError("No se pudo guardar el marcador."))}
               />
             )}
             {tab === "historial" && (
@@ -346,7 +347,7 @@ function EquipoTab({ players, onDelete }) {
 
 /* ---------------- Registrar ---------------- */
 
-function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUndo, onAddMatch, onSelectMatch }) {
+function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUndo, onAddMatch, onSelectMatch, onUpdateScore }) {
   const [expandedId, setExpandedId] = useState(null);
   const [pulse, setPulse] = useState(null);
   const [showMatchPicker, setShowMatchPicker] = useState(!activeMatch);
@@ -394,6 +395,8 @@ function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUn
         </div>
         <div style={styles.changeLink}>Cambiar</div>
       </div>
+
+      <Marcador match={activeMatch} onUpdate={onUpdateScore} />
 
       {filtered.length === 0 && (
         <EmptyState text={`No hay jugadores aprobados en ${activeMatch.category} todavía.`} />
@@ -451,6 +454,88 @@ function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUn
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function Marcador({ match, onUpdate }) {
+  const puntosNosotros = match.puntosNosotros || 0;
+  const puntosRival = match.puntosRival || 0;
+  const setsNosotros = match.setsNosotros || 0;
+  const setsRival = match.setsRival || 0;
+  const sets = match.sets || [];
+
+  const sumar = (side, delta) => {
+    const key = side === "nosotros" ? "puntosNosotros" : "puntosRival";
+    const current = side === "nosotros" ? puntosNosotros : puntosRival;
+    const next = Math.max(0, current + delta);
+    onUpdate({ [key]: next });
+  };
+
+  const finalizarSet = () => {
+    if (puntosNosotros === puntosRival) return;
+    const nuevoSet = { nosotros: puntosNosotros, rival: puntosRival };
+    const ganamos = puntosNosotros > puntosRival;
+    onUpdate({
+      sets: [...sets, nuevoSet],
+      setsNosotros: ganamos ? setsNosotros + 1 : setsNosotros,
+      setsRival: ganamos ? setsRival : setsRival + 1,
+      puntosNosotros: 0,
+      puntosRival: 0,
+    });
+  };
+
+  const deshacerSet = () => {
+    if (sets.length === 0) return;
+    const ultimo = sets[sets.length - 1];
+    const ganamosUltimo = ultimo.nosotros > ultimo.rival;
+    onUpdate({
+      sets: sets.slice(0, -1),
+      setsNosotros: ganamosUltimo ? Math.max(0, setsNosotros - 1) : setsNosotros,
+      setsRival: ganamosUltimo ? setsRival : Math.max(0, setsRival - 1),
+      puntosNosotros: ultimo.nosotros,
+      puntosRival: ultimo.rival,
+    });
+  };
+
+  return (
+    <div style={styles.scoreboardWrap}>
+      <div style={styles.scoreboardRow}>
+        <div style={styles.scoreboardSide}>
+          <div style={styles.scoreboardLabel}>Nosotros</div>
+          <div style={styles.scoreboardNum}>{puntosNosotros}</div>
+          <div style={styles.scoreboardBtns}>
+            <button style={styles.scoreboardBtn} onClick={() => sumar("nosotros", -1)}>−</button>
+            <button style={styles.scoreboardBtn} onClick={() => sumar("nosotros", 1)}>+</button>
+          </div>
+        </div>
+        <div style={styles.scoreboardVs}>{setsNosotros}-{setsRival}</div>
+        <div style={styles.scoreboardSide}>
+          <div style={styles.scoreboardLabel}>Rival</div>
+          <div style={styles.scoreboardNum}>{puntosRival}</div>
+          <div style={styles.scoreboardBtns}>
+            <button style={styles.scoreboardBtn} onClick={() => sumar("rival", -1)}>−</button>
+            <button style={styles.scoreboardBtn} onClick={() => sumar("rival", 1)}>+</button>
+          </div>
+        </div>
+      </div>
+      <div style={styles.rowGap}>
+        <button style={{ ...styles.primaryBtn, marginTop: 12 }} onClick={finalizarSet}>
+          <Check size={14} /> Finalizar set
+        </button>
+        {sets.length > 0 && (
+          <button style={{ ...styles.ghostBtn, marginTop: 12 }} onClick={deshacerSet}>
+            <Undo2 size={14} />
+          </button>
+        )}
+      </div>
+      {sets.length > 0 && (
+        <div style={{ textAlign: "center" }}>
+          {sets.map((s, i) => (
+            <span key={i} style={styles.setChip}>{s.nosotros}-{s.rival}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -550,6 +635,11 @@ function HistorialTab({ matches, players, totalsFor, asistencias, onDeleteMatch,
             <div style={styles.playerMeta}>
               {fmtDate(m.date)} · {m.category}{upcoming ? " · Próximo" : ""}
             </div>
+            {(m.setsNosotros > 0 || m.setsRival > 0) && (
+              <div style={{ fontSize: 12, color: "#3FB8AE", marginTop: 2, fontWeight: 700 }}>
+                Sets: {m.setsNosotros || 0}-{m.setsRival || 0}
+              </div>
+            )}
             {m.mvpName && (
               <div style={{ fontSize: 11, color: "#D9A544", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                 <Trophy size={11} /> MVP: {m.mvpName}
