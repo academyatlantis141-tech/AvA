@@ -249,6 +249,16 @@ export const styles = {
     transition: "background .15s",
   },
   navBtnActive: { background: "rgba(217,165,68,0.12)" },
+  sideNav: {
+    flexDirection: "column", width: 210, flexShrink: 0, padding: "18px 12px",
+    gap: 3, borderRight: "1px solid rgba(217,165,68,0.18)", background: "#0A1F2C",
+  },
+  sideNavBtn: {
+    display: "flex", alignItems: "center", gap: 12, background: "transparent", border: "none",
+    borderRadius: 10, padding: "11px 12px", fontSize: 14, fontWeight: 600, color: "#7FA0B0",
+    textAlign: "left", position: "relative",
+  },
+  sideNavBtnActive: { background: "rgba(217,165,68,0.12)", color: "#D9A544" },
   toastError: {
     position: "absolute", bottom: 80, left: 16, right: 16, background: "#E2664B", color: "#08141F",
     padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, textAlign: "center", zIndex: 30,

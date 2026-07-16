@@ -159,75 +159,80 @@ export default function AdminApp({ onLogout }) {
         onLogout={onLogout}
         pendingCount={solicitudes.length}
       />
-      <div style={styles.content}>
-        {tab === "solicitudes" && (
-          <SolicitudesTab
-            solicitudes={solicitudes}
-            onApprove={(s) => aprobarSolicitud(s).catch(() => showError("No se pudo aprobar."))}
-            onReject={(id) => rechazarSolicitud(id).catch(() => showError("No se pudo rechazar."))}
-          />
-        )}
-        {tab === "equipo" && (
-          <EquipoTab
-            players={players}
-            onDelete={(id) => eliminarJugador(id).catch(() => showError("No se pudo eliminar."))}
-          />
-        )}
-        {tab === "registrar" && (
-          <RegistrarTab
-            players={players}
-            matches={matches}
-            activeMatch={activeMatch}
-            totalsFor={totalsFor}
-            onRecord={(playerId, matchId, statKey, result) =>
-              agregarRegistro({ playerId, matchId, statKey, result }).catch(() => showError("No se pudo guardar."))
-            }
-            onUndo={(playerId, matchId) => {
-              const last = [...records]
-                .filter((r) => r.playerId === playerId && r.matchId === matchId)
-                .sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
-              if (last) eliminarRegistro(last.id).catch(() => showError("No se pudo deshacer."));
-            }}
-            onAddMatch={async (label, date, category) => {
-              const id = await crearPartido({ label, date, category });
-              setActiveMatchId(id);
-            }}
-            onSelectMatch={setActiveMatchId}
-          />
-        )}
-        {tab === "historial" && (
-          <HistorialTab
-            matches={matches}
-            players={players}
-            totalsFor={totalsFor}
-            asistencias={asistencias}
-            onDeleteMatch={(id) => eliminarPartido(id).catch(() => showError("No se pudo eliminar."))}
-            onSetMVP={(matchId, player) => marcarMVP(matchId, player).catch(() => showError("No se pudo guardar el MVP."))}
-            onSetAsistencia={(payload) => marcarAsistencia(payload).catch(() => showError("No se pudo guardar la asistencia."))}
-          />
-        )}
-        {tab === "estadisticas" && (
-          <EstadisticasTab
-            players={players}
-            totalsFor={totalsFor}
-            matches={matches}
-            asistencias={asistencias}
-            onReset={() =>
-              restablecerEstadisticas().catch(() => showError("No se pudo restablecer."))
-            }
-          />
-        )}
-        {tab === "anuncios" && (
-          <AnunciosTab
-            anuncios={anuncios}
-            onCreate={(payload) => crearAnuncio(payload).catch(() => showError("No se pudo publicar."))}
-            onDelete={(id) => eliminarAnuncio(id).catch(() => showError("No se pudo eliminar."))}
-          />
-        )}
-        {tab === "chat" && <ChatTab mensajes={mensajes} />}
+      <div className="atlantis-body" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <SideNav tab={tab} setTab={setTab} pendingCount={solicitudes.length} />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={styles.content} className="atlantis-content-scroll">
+            {tab === "solicitudes" && (
+              <SolicitudesTab
+                solicitudes={solicitudes}
+                onApprove={(s) => aprobarSolicitud(s).catch(() => showError("No se pudo aprobar."))}
+                onReject={(id) => rechazarSolicitud(id).catch(() => showError("No se pudo rechazar."))}
+              />
+            )}
+            {tab === "equipo" && (
+              <EquipoTab
+                players={players}
+                onDelete={(id) => eliminarJugador(id).catch(() => showError("No se pudo eliminar."))}
+              />
+            )}
+            {tab === "registrar" && (
+              <RegistrarTab
+                players={players}
+                matches={matches}
+                activeMatch={activeMatch}
+                totalsFor={totalsFor}
+                onRecord={(playerId, matchId, statKey, result) =>
+                  agregarRegistro({ playerId, matchId, statKey, result }).catch(() => showError("No se pudo guardar."))
+                }
+                onUndo={(playerId, matchId) => {
+                  const last = [...records]
+                    .filter((r) => r.playerId === playerId && r.matchId === matchId)
+                    .sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+                  if (last) eliminarRegistro(last.id).catch(() => showError("No se pudo deshacer."));
+                }}
+                onAddMatch={async (label, date, category) => {
+                  const id = await crearPartido({ label, date, category });
+                  setActiveMatchId(id);
+                }}
+                onSelectMatch={setActiveMatchId}
+              />
+            )}
+            {tab === "historial" && (
+              <HistorialTab
+                matches={matches}
+                players={players}
+                totalsFor={totalsFor}
+                asistencias={asistencias}
+                onDeleteMatch={(id) => eliminarPartido(id).catch(() => showError("No se pudo eliminar."))}
+                onSetMVP={(matchId, player) => marcarMVP(matchId, player).catch(() => showError("No se pudo guardar el MVP."))}
+                onSetAsistencia={(payload) => marcarAsistencia(payload).catch(() => showError("No se pudo guardar la asistencia."))}
+              />
+            )}
+            {tab === "estadisticas" && (
+              <EstadisticasTab
+                players={players}
+                totalsFor={totalsFor}
+                matches={matches}
+                asistencias={asistencias}
+                onReset={() =>
+                  restablecerEstadisticas().catch(() => showError("No se pudo restablecer."))
+                }
+              />
+            )}
+            {tab === "anuncios" && (
+              <AnunciosTab
+                anuncios={anuncios}
+                onCreate={(payload) => crearAnuncio(payload).catch(() => showError("No se pudo publicar."))}
+                onDelete={(id) => eliminarAnuncio(id).catch(() => showError("No se pudo eliminar."))}
+              />
+            )}
+            {tab === "chat" && <ChatTab mensajes={mensajes} />}
+          </div>
+          <BottomNav tab={tab} setTab={setTab} pendingCount={solicitudes.length} />
+        </div>
       </div>
       {error && <div style={styles.toastError}>{error}</div>}
-      <BottomNav tab={tab} setTab={setTab} pendingCount={solicitudes.length} />
     </div>
   );
 }
@@ -271,7 +276,7 @@ function SolicitudesTab({ solicitudes, onApprove, onReject }) {
     return <EmptyState text="No hay solicitudes de perfil pendientes por ahora." />;
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div className="atlantis-cardgrid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {solicitudes.map((s) => (
         <div key={s.id} style={styles.card}>
           <div style={styles.playerRow}>
@@ -314,9 +319,9 @@ function EquipoTab({ players, onDelete }) {
         Los estudiantes crean su propio perfil desde la vista "Estudiantes" — tú solo los apruebas en "Solicitudes".
       </div>
       {filtered.length === 0 && <EmptyState text={`Todavía no hay jugadores aprobados en ${category}.`} />}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="atlantis-cardgrid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((p) => (
-          <div key={p.id} style={styles.playerRow}>
+          <div key={p.id} style={{ ...styles.playerRow, ...styles.card, marginBottom: 0 }}>
             <Avatar player={p} />
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{p.name}</div>
@@ -809,7 +814,7 @@ function EstadisticasTab({ players, totalsFor, matches, asistencias, onReset }) 
         })}
       </div>
       {filtered.length === 0 && <EmptyState text="No hay estadísticas para mostrar todavía." />}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="atlantis-cardgrid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((p) => {
           const total = FUNDAMENTOS.reduce((s, f) => s + p.totals[f.key].acierto + p.totals[f.key].error, 0);
           const misPartidos = matches.filter((m) => m.category === p.category);
@@ -882,6 +887,41 @@ function EmptyState({ text }) {
   );
 }
 
+function SideNav({ tab, setTab, pendingCount }) {
+  const items = [
+    { key: "solicitudes", label: "Solicitudes", icon: Inbox, badge: pendingCount },
+    { key: "equipo", label: "Equipo", icon: Users },
+    { key: "registrar", label: "Registrar", icon: Plus },
+    { key: "historial", label: "Partidos", icon: Calendar },
+    { key: "estadisticas", label: "Estadísticas", icon: BarChart3 },
+    { key: "anuncios", label: "Anuncios", icon: Megaphone },
+    { key: "chat", label: "Chat", icon: MessageCircle },
+  ];
+  return (
+    <div className="atlantis-sidenav" style={styles.sideNav}>
+      {items.map((it) => {
+        const Icon = it.icon;
+        const active = tab === it.key;
+        return (
+          <button
+            key={it.key}
+            onClick={() => setTab(it.key)}
+            style={{ ...styles.sideNavBtn, ...(active ? styles.sideNavBtnActive : {}) }}
+          >
+            <Icon size={18} strokeWidth={active ? 2.4 : 2} />
+            <span>{it.label}</span>
+            {!!it.badge && (
+              <span style={{ marginLeft: "auto", background: "#E2664B", color: "#08141F", fontSize: 10, fontWeight: 800, borderRadius: 8, padding: "1px 7px" }}>
+                {it.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function BottomNav({ tab, setTab, pendingCount }) {
   const items = [
     { key: "solicitudes", label: "Solicitudes", icon: Inbox, badge: pendingCount },
@@ -893,7 +933,7 @@ function BottomNav({ tab, setTab, pendingCount }) {
     { key: "chat", label: "Chat", icon: MessageCircle },
   ];
   return (
-    <div style={{ ...styles.bottomNav, overflowX: "auto" }}>
+    <div className="atlantis-bottomnav" style={{ ...styles.bottomNav, overflowX: "auto" }}>
       {items.map((it) => {
         const Icon = it.icon;
         const active = tab === it.key;
