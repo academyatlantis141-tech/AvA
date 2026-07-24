@@ -28,9 +28,9 @@ export async function enviarMensaje({ category, authorName, authorRole, text }) 
   });
 }
 
-export async function crearSolicitud({ name, category, number, photo }) {
+export async function crearSolicitud({ name, category, number, photo, posicion }) {
   return addDoc(collection(db, "solicitudes"), {
-    name, category, number: number || "", photo: photo || "",
+    name, category, number: number || "", photo: photo || "", posicion: posicion || "",
     createdAt: serverTimestamp(), ts: Date.now(),
   });
 }
@@ -41,6 +41,7 @@ export async function aprobarSolicitud(solicitud) {
     category: solicitud.category,
     number: solicitud.number || "",
     photo: solicitud.photo || "",
+    posicion: solicitud.posicion || "",
     createdAt: serverTimestamp(),
     ts: Date.now(),
   });
@@ -59,6 +60,9 @@ export async function crearPartido({ label, date, category }) {
   const ref = await addDoc(collection(db, "partidos"), {
     label, date, category, mvpId: "", mvpName: "",
     puntosNosotros: 0, puntosRival: 0, setsNosotros: 0, setsRival: 0, sets: [],
+    tiempoFueraNosotros: 2, tiempoFueraRival: 2,
+    rotacionNosotros: 1, rotacionRival: 1,
+    timerElapsed: 0, timerRunning: false, timerStartedAt: null,
     createdAt: serverTimestamp(), ts: Date.now(),
   });
   return ref.id;

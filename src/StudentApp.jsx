@@ -3,7 +3,7 @@ import {
   ChevronLeft, UserPlus, Search, Check, Clock, Waves, MessageCircle,
   Megaphone, Calendar, Trophy, Camera, CalendarCheck
 } from "lucide-react";
-import { CATEGORIES, styles, emptyTotals, fmtDate, todayISO, loadFont, requestNotificationPermission, notify, resizeImageToBase64 } from "./shared.js";
+import { CATEGORIES, POSICIONES, styles, emptyTotals, fmtDate, todayISO, loadFont, requestNotificationPermission, notify, resizeImageToBase64, fundamentosFor } from "./shared.js";
 import { subJugadores, subRegistros, subMensajes, subPartidos, subAnuncios, subAsistencias, crearSolicitud } from "./db.js";
 import PlayerBars, { StatSummaryTiles } from "./PlayerBars.jsx";
 import ChatView from "./ChatView.jsx";
@@ -152,6 +152,7 @@ function MenuView({ setView }) {
 function CrearPerfilView({ onDone }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
+  const [posicion, setPosicion] = useState("");
   const [number, setNumber] = useState("");
   const [photo, setPhoto] = useState("");
   const [sending, setSending] = useState(false);
@@ -172,7 +173,7 @@ function CrearPerfilView({ onDone }) {
     if (!name.trim()) return;
     setSending(true);
     try {
-      await crearSolicitud({ name: name.trim(), category, number: number.trim(), photo });
+      await crearSolicitud({ name: name.trim(), category, number: number.trim(), photo, posicion });
       onDone();
     } catch (e) {
       setError("No se pudo enviar. Revisa tu conexión e intenta de nuevo.");
@@ -226,6 +227,23 @@ function CrearPerfilView({ onDone }) {
           </button>
         ))}
       </div>
+      <div style={{ ...styles.sectionLabel, marginBottom: 8 }}>Tu posición (opcional)</div>
+      <div style={styles.chipsRow}>
+        {POSICIONES.map((pos) => (
+          <button
+            key={pos}
+            onClick={() => setPosicion(posicion === pos ? "" : pos)}
+            style={{ ...styles.chip, ...(posicion === pos ? styles.chipActive : {}) }}
+          >
+            {pos}
+          </button>
+        ))}
+      </div>
+      {posicion === "Pasadora" && (
+        <div style={{ ...styles.emptyText, marginBottom: 10 }}>
+          Como pasadora, también vas a poder llevar tu estadística de voleo.
+        </div>
+      )}
       {error && <div style={{ color: "#E2664B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
       <button style={styles.primaryBtn} onClick={submit} disabled={sending}>
         <Check size={16} /> {sending ? "Enviando..." : "Enviar mi perfil"}
@@ -326,7 +344,7 @@ function ChatEntryView({ jugadores, loading, mensajes, onIdentify }) {
             <Avatar player={p} />
             <div>
               <div style={styles.playerName}>{p.name}</div>
-              <div style={styles.playerMeta}>{p.category}</div>
+              <div style={styles.playerMeta}>{p.category}{p.posicion ? " · " + p.posicion : ""}</div>
             </div>
           </div>
         ))}
@@ -378,7 +396,7 @@ function MisStatsView({ jugadores, loading, totalsFor, partidos, asistencias }) 
             <Avatar player={selected} size={44} />
             <div>
               <div style={styles.playerName}>{selected.name}</div>
-              <div style={styles.playerMeta}>{selected.category} · {total} acciones registradas</div>
+              <div style={styles.playerMeta}>{selected.category}{selected.posicion ? " · " + selected.posicion : ""} · {total} acciones registradas</div>
             </div>
           </div>
 
@@ -397,8 +415,8 @@ function MisStatsView({ jugadores, loading, totalsFor, partidos, asistencias }) 
             </div>
           )}
 
-          <StatSummaryTiles totals={totals} />
-          <PlayerBars totals={totals} />
+          <StatSummaryTiles totals={totals} fundamentos={fundamentosFor(selected)} />
+          <PlayerBars totals={totals} fundamentos={fundamentosFor(selected)} />
           <ProgressChart playerId={selected.id} matches={misPartidos} totalsFor={totalsFor} />
         </div>
       </div>
@@ -438,7 +456,7 @@ function MisStatsView({ jugadores, loading, totalsFor, partidos, asistencias }) 
             <Avatar player={p} />
             <div>
               <div style={styles.playerName}>{p.name}</div>
-              <div style={styles.playerMeta}>{p.category}</div>
+              <div style={styles.playerMeta}>{p.category}{p.posicion ? " · " + p.posicion : ""}</div>
             </div>
           </div>
         ))}

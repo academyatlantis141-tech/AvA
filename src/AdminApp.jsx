@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Users, Trash2, X, Plus, ChevronRight, ChevronLeft, BarChart3, Undo2,
   Check, Waves, Search, Calendar, FileDown, Inbox, LogOut, MessageCircle,
-  AlertTriangle, Megaphone, Trophy, CalendarCheck, CalendarX
+  AlertTriangle, Megaphone, Trophy, CalendarCheck, CalendarX, Timer, Play, Pause, RotateCcw
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
-  CATEGORIES, FUNDAMENTOS, ACIERTO_COLOR, ERROR_COLOR, styles, globalCss,
+  CATEGORIES, FUNDAMENTOS, ALL_FUNDAMENTOS, ACIERTO_COLOR, ERROR_COLOR, styles, globalCss, fundamentosFor,
   todayISO, fmtDate, emptyTotals, loadFont, requestNotificationPermission, notify,
 } from "./shared.js";
 import {
@@ -99,7 +99,7 @@ export default function AdminApp({ onLogout }) {
     try {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-        players.map((p) => ({ Nombre: p.name, Número: p.number || "", Categoría: p.category }))
+        players.map((p) => ({ Nombre: p.name, Número: p.number || "", Categoría: p.category, Posición: p.posicion || "" }))
       ), "Jugadoras");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
         matches.map((m) => ({ Fecha: fmtDate(m.date), Partido: m.label, Categoría: m.category, MVP: m.mvpName || "" }))
@@ -107,7 +107,7 @@ export default function AdminApp({ onLogout }) {
       const detalle = records.map((r) => {
         const p = players.find((pl) => pl.id === r.playerId);
         const m = matches.find((mm) => mm.id === r.matchId);
-        const f = FUNDAMENTOS.find((ff) => ff.key === r.statKey);
+        const f = ALL_FUNDAMENTOS.find((ff) => ff.key === r.statKey);
         return {
           Fecha: m ? fmtDate(m.date) : "", Partido: m ? m.label : "",
           Categoría: p ? p.category : "", Jugadora: p ? p.name : "",
@@ -118,8 +118,8 @@ export default function AdminApp({ onLogout }) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), "Detalle");
       const resumen = players.map((p) => {
         const t = totalsFor(p.id);
-        const row = { Jugadora: p.name, Categoría: p.category };
-        FUNDAMENTOS.forEach((f) => {
+        const row = { Jugadora: p.name, Categoría: p.category, Posición: p.posicion || "" };
+        fundamentosFor(p).forEach((f) => {
           row[`${f.label} Acierto`] = t[f.key].acierto;
           row[`${f.label} Error`] = t[f.key].error;
         });
@@ -284,7 +284,7 @@ function SolicitudesTab({ solicitudes, onApprove, onReject }) {
             <Avatar player={s} />
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{s.name}</div>
-              <div style={styles.playerMeta}>{s.category}</div>
+              <div style={styles.playerMeta}>{s.category}{s.posicion ? " · " + s.posicion : ""}</div>
             </div>
           </div>
           <div style={{ ...styles.rowGap, marginTop: 10 }}>
@@ -326,7 +326,7 @@ function EquipoTab({ players, onDelete }) {
             <Avatar player={p} />
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{p.name}</div>
-              <div style={styles.playerMeta}>{p.category}</div>
+              <div style={styles.playerMeta}>{p.category}{p.posicion ? " · " + p.posicion : ""}</div>
             </div>
             {confirmId === p.id ? (
               <div style={styles.rowGap}>
@@ -413,7 +413,7 @@ function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUn
                 <div style={{ flex: 1 }}>
                   <div style={styles.playerName}>{p.name}</div>
                   <div style={styles.playerMeta}>
-                    {FUNDAMENTOS.map((f) => `${f.label[0]} ${totals[f.key].acierto}/${totals[f.key].error}`).join("  ")}
+                    {fundamentosFor(p).map((f) => `${f.label[0]} ${totals[f.key].acierto}/${totals[f.key].error}`).join("  ")}
                   </div>
                 </div>
                 <ChevronRight size={18} color="#7FA0B0" style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
@@ -421,7 +421,7 @@ function RegistrarTab({ players, matches, activeMatch, totalsFor, onRecord, onUn
 
               {isOpen && (
                 <div style={{ marginTop: 14 }}>
-                  {FUNDAMENTOS.map((f) => {
+                  {fundamentosFor(p).map((f) => {
                     const Icon = f.icon;
                     return (
                       <div key={f.key} style={styles.fundamentoRow}>
@@ -464,6 +464,51 @@ function Marcador({ match, onUpdate }) {
   const setsNosotros = match.setsNosotros || 0;
   const setsRival = match.setsRival || 0;
   const sets = match.sets || [];
+  const tiempoFueraNosotros = match.tiempoFueraNosotros ?? 2;
+  const tiempoFueraRival = match.tiempoFueraRival ?? 2;
+  const rotacionNosotros = match.rotacionNosotros || 1;
+  const rotacionRival = match.rotacionRival || 1;
+
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!match.timerRunning) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [match.timerRunning]);
+
+  const elapsedSeconds = (() => {
+    const base = match.timerElapsed || 0;
+    if (!match.timerRunning || !match.timerStartedAt) return base;
+    return base + Math.floor((Date.now() - match.timerStartedAt) / 1000);
+  })();
+  const mm = String(Math.floor(elapsedSeconds / 60)).padStart(2, "0");
+  const ss = String(elapsedSeconds % 60).padStart(2, "0");
+
+  const toggleTimer = () => {
+    if (match.timerRunning) {
+      onUpdate({ timerRunning: false, timerElapsed: elapsedSeconds, timerStartedAt: null });
+    } else {
+      onUpdate({ timerRunning: true, timerStartedAt: Date.now() });
+    }
+  };
+  const resetTimer = () => onUpdate({ timerRunning: false, timerElapsed: 0, timerStartedAt: null });
+
+  const usarTiempoFuera = (side) => {
+    const key = side === "nosotros" ? "tiempoFueraNosotros" : "tiempoFueraRival";
+    const current = side === "nosotros" ? tiempoFueraNosotros : tiempoFueraRival;
+    if (current <= 0) return;
+    onUpdate({ [key]: current - 1 });
+  };
+
+  const rotar = (side) => {
+    const key = side === "nosotros" ? "rotacionNosotros" : "rotacionRival";
+    const current = side === "nosotros" ? rotacionNosotros : rotacionRival;
+    onUpdate({ [key]: current >= 6 ? 1 : current + 1 });
+  };
+  const setRotacion = (side, n) => {
+    const key = side === "nosotros" ? "rotacionNosotros" : "rotacionRival";
+    onUpdate({ [key]: n });
+  };
 
   const sumar = (side, delta) => {
     const key = side === "nosotros" ? "puntosNosotros" : "puntosRival";
@@ -482,6 +527,8 @@ function Marcador({ match, onUpdate }) {
       setsRival: ganamos ? setsRival : setsRival + 1,
       puntosNosotros: 0,
       puntosRival: 0,
+      tiempoFueraNosotros: 2,
+      tiempoFueraRival: 2,
     });
   };
 
@@ -500,25 +547,42 @@ function Marcador({ match, onUpdate }) {
 
   return (
     <div style={styles.scoreboardWrap}>
-      <div style={styles.scoreboardRow}>
-        <div style={styles.scoreboardSide}>
-          <div style={styles.scoreboardLabel}>Nosotros</div>
-          <div style={styles.scoreboardNum}>{puntosNosotros}</div>
-          <div style={styles.scoreboardBtns}>
-            <button style={styles.scoreboardBtn} onClick={() => sumar("nosotros", -1)}>−</button>
-            <button style={styles.scoreboardBtn} onClick={() => sumar("nosotros", 1)}>+</button>
-          </div>
+      <div style={styles.timerBar}>
+        <button style={styles.timeoutBadge} onClick={() => usarTiempoFuera("nosotros")}>
+          <Timer size={13} color="#3FB8AE" />
+          <div style={{ ...styles.timeoutNum, color: "#3FB8AE" }}>{tiempoFueraNosotros}</div>
+        </button>
+        <button style={styles.timerDisplay} onClick={toggleTimer}>
+          {mm}:{ss}
+        </button>
+        <button style={styles.timeoutBadge} onClick={() => usarTiempoFuera("rival")}>
+          <Timer size={13} color="#E2664B" />
+          <div style={{ ...styles.timeoutNum, color: "#E2664B" }}>{tiempoFueraRival}</div>
+        </button>
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", gap: 10, marginBottom: 14 }}>
+        <button style={styles.ghostBtnSmall} onClick={toggleTimer}>
+          {match.timerRunning ? <Pause size={14} /> : <Play size={14} />}
+        </button>
+        <button style={styles.ghostBtnSmall} onClick={resetTimer}>
+          <RotateCcw size={14} />
+        </button>
+      </div>
+
+      <div style={styles.bigScoreRow}>
+        <div style={{ ...styles.bigScoreBlock, background: "#3FB8AE" }} onClick={() => sumar("nosotros", 1)}>
+          <div style={styles.bigScoreLabel}>Nosotros</div>
+          <div style={styles.bigScoreNum}>{puntosNosotros}</div>
+          <button style={styles.bigScoreMinus} onClick={(e) => { e.stopPropagation(); sumar("nosotros", -1); }}>−1</button>
         </div>
-        <div style={styles.scoreboardVs}>{setsNosotros}-{setsRival}</div>
-        <div style={styles.scoreboardSide}>
-          <div style={styles.scoreboardLabel}>Rival</div>
-          <div style={styles.scoreboardNum}>{puntosRival}</div>
-          <div style={styles.scoreboardBtns}>
-            <button style={styles.scoreboardBtn} onClick={() => sumar("rival", -1)}>−</button>
-            <button style={styles.scoreboardBtn} onClick={() => sumar("rival", 1)}>+</button>
-          </div>
+        <div style={{ ...styles.bigScoreBlock, background: "#E2664B" }} onClick={() => sumar("rival", 1)}>
+          <div style={styles.bigScoreLabel}>Rival</div>
+          <div style={styles.bigScoreNum}>{puntosRival}</div>
+          <button style={styles.bigScoreMinus} onClick={(e) => { e.stopPropagation(); sumar("rival", -1); }}>−1</button>
         </div>
       </div>
+      <div style={styles.scoreboardSets}>Sets {setsNosotros}-{setsRival}</div>
+
       <div style={styles.rowGap}>
         <button style={{ ...styles.primaryBtn, marginTop: 12 }} onClick={finalizarSet}>
           <Check size={14} /> Finalizar set
@@ -536,6 +600,37 @@ function Marcador({ match, onUpdate }) {
           ))}
         </div>
       )}
+
+      <div style={styles.rotationWrap}>
+        <div style={styles.rotationLabel}>Rotación nosotros</div>
+        <div style={styles.rotationRow}>
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <button
+              key={n}
+              style={{ ...styles.rotationCircle, ...(rotacionNosotros === n ? styles.rotationCircleActive : {}) }}
+              onClick={() => setRotacion("nosotros", n)}
+            >
+              {n}
+            </button>
+          ))}
+          <button style={styles.timerBtn} onClick={() => rotar("nosotros")}><RotateCcw size={14} /></button>
+        </div>
+      </div>
+      <div style={styles.rotationWrap}>
+        <div style={styles.rotationLabel}>Rotación rival</div>
+        <div style={styles.rotationRow}>
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <button
+              key={n}
+              style={{ ...styles.rotationCircle, ...(rotacionRival === n ? styles.rotationCircleActive : {}) }}
+              onClick={() => setRotacion("rival", n)}
+            >
+              {n}
+            </button>
+          ))}
+          <button style={styles.timerBtn} onClick={() => rotar("rival")}><RotateCcw size={14} /></button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -664,7 +759,7 @@ function HistorialTab({ matches, players, totalsFor, asistencias, onDeleteMatch,
             {roster.length === 0 && <div style={styles.emptyText}>No hay jugadoras en esta categoría todavía.</div>}
             {roster.map((p) => {
               const t = totalsFor(p.id, m.id);
-              const total = FUNDAMENTOS.reduce((s, f) => s + t[f.key].acierto + t[f.key].error, 0);
+              const total = fundamentosFor(p).reduce((s, f) => s + t[f.key].acierto + t[f.key].error, 0);
               const asistRecord = asistencias.find((a) => a.matchId === m.id && a.playerId === p.id);
               const isMVP = m.mvpId === p.id;
               return (
@@ -701,7 +796,7 @@ function HistorialTab({ matches, players, totalsFor, asistencias, onDeleteMatch,
                       </button>
                     </div>
                   </div>
-                  {total > 0 && <PlayerBars totals={t} />}
+                  {total > 0 && <PlayerBars totals={t} fundamentos={fundamentosFor(p)} />}
                 </div>
               );
             })}
@@ -821,8 +916,8 @@ function EstadisticasTab({ players, totalsFor, matches, asistencias, onReset }) 
     return list
       .map((p) => ({ ...p, totals: totalsFor(p.id) }))
       .sort((a, b) => {
-        const sumA = FUNDAMENTOS.reduce((s, f) => s + a.totals[f.key].acierto + a.totals[f.key].error, 0);
-        const sumB = FUNDAMENTOS.reduce((s, f) => s + b.totals[f.key].acierto + b.totals[f.key].error, 0);
+        const sumA = fundamentosFor(a).reduce((s, f) => s + a.totals[f.key].acierto + a.totals[f.key].error, 0);
+        const sumB = fundamentosFor(b).reduce((s, f) => s + b.totals[f.key].acierto + b.totals[f.key].error, 0);
         return sumB - sumA;
       });
   }, [players, category, query, totalsFor]);
@@ -906,7 +1001,7 @@ function EstadisticasTab({ players, totalsFor, matches, asistencias, onReset }) 
       {filtered.length === 0 && <EmptyState text="No hay estadísticas para mostrar todavía." />}
       <div className="atlantis-cardgrid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((p) => {
-          const total = FUNDAMENTOS.reduce((s, f) => s + p.totals[f.key].acierto + p.totals[f.key].error, 0);
+          const total = fundamentosFor(p).reduce((s, f) => s + p.totals[f.key].acierto + p.totals[f.key].error, 0);
           const misPartidos = matches.filter((m) => m.category === p.category);
           const mvpCount = misPartidos.filter((m) => m.mvpId === p.id).length;
           const misAsist = asistencias.filter((a) => a.playerId === p.id);
@@ -919,7 +1014,7 @@ function EstadisticasTab({ players, totalsFor, matches, asistencias, onReset }) 
                 <Avatar player={p} />
                 <div style={{ flex: 1 }}>
                   <div style={styles.playerName}>{p.name}</div>
-                  <div style={styles.playerMeta}>{p.category} · {total} acciones</div>
+                  <div style={styles.playerMeta}>{p.category}{p.posicion ? " · " + p.posicion : ""} · {total} acciones</div>
                 </div>
                 <ChevronRight size={18} color="#7FA0B0" style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
               </div>
@@ -939,10 +1034,10 @@ function EstadisticasTab({ players, totalsFor, matches, asistencias, onReset }) 
                 </div>
               )}
 
-              <StatSummaryTiles totals={p.totals} />
+              <StatSummaryTiles totals={p.totals} fundamentos={fundamentosFor(p)} />
               {isOpen && (
                 <>
-                  <PlayerBars totals={p.totals} />
+                  <PlayerBars totals={p.totals} fundamentos={fundamentosFor(p)} />
                   <ProgressChart playerId={p.id} matches={misPartidos} totalsFor={totalsFor} />
                 </>
               )}

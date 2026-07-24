@@ -1,6 +1,8 @@
-import { Send, Zap, Shield, Hand } from "lucide-react";
+import { Send, Zap, Shield, Hand, Repeat } from "lucide-react";
 
 export const CATEGORIES = ["Pre Mini", "Mini", "Intermedia", "Juvenil"];
+
+export const POSICIONES = ["Punta", "Opuesto", "Central", "Pasadora", "Líbero"];
 
 export const FUNDAMENTOS = [
   { key: "saque", label: "Saque", icon: Send, color: "#3FB8AE" },
@@ -8,6 +10,15 @@ export const FUNDAMENTOS = [
   { key: "bloqueo", label: "Bloqueo", icon: Shield, color: "#5B8DBE" },
   { key: "recibo", label: "Recibo", icon: Hand, color: "#7BC67E" },
 ];
+
+export const FUNDAMENTO_VOLEO = { key: "voleo", label: "Voleo", icon: Repeat, color: "#C99BE0" };
+
+export const ALL_FUNDAMENTOS = [...FUNDAMENTOS, FUNDAMENTO_VOLEO];
+
+// Las pasadoras (armadoras) llevan además la estadística de voleo/armado.
+export function fundamentosFor(player) {
+  return player?.posicion === "Pasadora" ? ALL_FUNDAMENTOS : FUNDAMENTOS;
+}
 
 export const ACIERTO_COLOR = "#7BC67E";
 export const ERROR_COLOR = "#E2664B";
@@ -22,7 +33,7 @@ export function fmtDate(iso) {
 }
 export function emptyTotals() {
   const t = {};
-  FUNDAMENTOS.forEach((f) => (t[f.key] = { acierto: 0, error: 0 }));
+  ALL_FUNDAMENTOS.forEach((f) => (t[f.key] = { acierto: 0, error: 0 }));
   return t;
 }
 
@@ -214,7 +225,7 @@ export const styles = {
     borderRadius: 10, padding: "9px 12px", marginBottom: 14,
   },
   searchInput: { flex: 1, background: "transparent", border: "none", color: "#F2E9D8", fontSize: 14 },
-  summaryGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 16 },
+  summaryGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))", gap: 6, marginBottom: 16 },
   summaryTile: {
     background: "#0F2A3A", border: "1.5px solid", borderRadius: 10, padding: "8px 4px",
     display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
@@ -349,6 +360,43 @@ export const styles = {
     display: "inline-block", background: "#16374B", color: "#9FBAC8", fontSize: 11, fontWeight: 600,
     borderRadius: 6, padding: "2px 7px", marginRight: 5, marginTop: 6,
   },
+  timerBar: {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 14,
+  },
+  timeoutBadge: {
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+    background: "#0F2A3A", border: "1px solid #2B4F5F", borderRadius: 10, padding: "6px 10px",
+    minWidth: 40,
+  },
+  timeoutNum: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 18 },
+  timerDisplay: {
+    fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, letterSpacing: 2, color: "#F2E9D8",
+    background: "#08141F", border: "1px solid #1B4257", borderRadius: 10, padding: "6px 18px",
+    minWidth: 120, textAlign: "center",
+  },
+  timerBtn: {
+    width: 34, height: 34, borderRadius: "50%", border: "1px solid #2B4F5F", background: "#0F2A3A",
+    color: "#F2E9D8", display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  bigScoreRow: { display: "flex", gap: 10, marginBottom: 4 },
+  bigScoreBlock: {
+    flex: 1, borderRadius: 16, padding: "16px 8px", textAlign: "center", cursor: "pointer",
+    boxShadow: "0 6px 16px rgba(0,0,0,0.3)",
+  },
+  bigScoreLabel: { fontSize: 11, fontWeight: 800, color: "#08141F", opacity: 0.75, textTransform: "uppercase", letterSpacing: 0.5 },
+  bigScoreNum: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 56, color: "#08141F", lineHeight: 1.1 },
+  bigScoreMinus: {
+    marginTop: 6, border: "none", background: "rgba(8,20,31,0.25)", color: "#08141F", borderRadius: 8,
+    padding: "4px 14px", fontWeight: 800, fontSize: 14,
+  },
+  rotationWrap: { marginTop: 14 },
+  rotationLabel: { fontSize: 11, fontWeight: 700, color: "#7FA0B0", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
+  rotationRow: { display: "flex", gap: 6, justifyContent: "space-between" },
+  rotationCircle: {
+    width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #2B4F5F", background: "#0F2A3A",
+    color: "#7FA0B0", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  rotationCircleActive: { background: "#D9A544", borderColor: "#D9A544", color: "#08141F" },
 };
 
 export const globalCss = `

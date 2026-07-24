@@ -1,10 +1,10 @@
 import React from "react";
 import { FUNDAMENTOS, ACIERTO_COLOR, ERROR_COLOR, styles } from "./shared.js";
 
-export function StatSummaryTiles({ totals }) {
+export function StatSummaryTiles({ totals, fundamentos = FUNDAMENTOS }) {
   return (
     <div style={styles.summaryGrid}>
-      {FUNDAMENTOS.map((f) => {
+      {fundamentos.map((f) => {
         const Icon = f.icon;
         const t = totals[f.key];
         const total = t.acierto + t.error;
@@ -23,10 +23,10 @@ export function StatSummaryTiles({ totals }) {
   );
 }
 
-export default function PlayerBars({ totals }) {
+export default function PlayerBars({ totals, fundamentos = FUNDAMENTOS }) {
   return (
     <div style={styles.barsWrap}>
-      {FUNDAMENTOS.map((f) => {
+      {fundamentos.map((f) => {
         const t = totals[f.key];
         const total = t.acierto + t.error;
         const aciertoPct = total ? (t.acierto / total) * 100 : 0;
