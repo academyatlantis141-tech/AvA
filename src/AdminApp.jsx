@@ -317,7 +317,8 @@ function EquipoTab({ players, onDelete }) {
         </div>
       </div>
       <div style={{ ...styles.emptyText, marginBottom: 12 }}>
-        Los estudiantes crean su propio perfil desde la vista "Estudiantes" — tú solo los apruebas en "Solicitudes".
+        Los estudiantes crean su propio perfil desde la vista "Estudiantes" y tú los apruebas en "Solicitudes".
+        A cada una le asignamos un código — compártelo con ella para que entre solo a sus propias estadísticas.
       </div>
       {filtered.length === 0 && <EmptyState text={`Todavía no hay jugadores aprobados en ${category}.`} />}
       <div className="atlantis-cardgrid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -327,6 +328,7 @@ function EquipoTab({ players, onDelete }) {
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{p.name}</div>
               <div style={styles.playerMeta}>{p.category}{p.posicion ? " · " + p.posicion : ""}</div>
+              {p.codigo && <div style={styles.pendingBadge}>Código: {p.codigo}</div>}
             </div>
             {confirmId === p.id ? (
               <div style={styles.rowGap}>

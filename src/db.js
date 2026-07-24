@@ -35,6 +35,10 @@ export async function crearSolicitud({ name, category, number, photo, posicion }
   });
 }
 
+function generarCodigo() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 export async function aprobarSolicitud(solicitud) {
   await addDoc(collection(db, "jugadores"), {
     name: solicitud.name,
@@ -42,6 +46,7 @@ export async function aprobarSolicitud(solicitud) {
     number: solicitud.number || "",
     photo: solicitud.photo || "",
     posicion: solicitud.posicion || "",
+    codigo: generarCodigo(),
     createdAt: serverTimestamp(),
     ts: Date.now(),
   });

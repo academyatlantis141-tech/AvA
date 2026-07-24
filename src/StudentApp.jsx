@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ChevronLeft, UserPlus, Search, Check, Clock, Waves, MessageCircle,
-  Megaphone, Calendar, Trophy, Camera, CalendarCheck
+  ChevronLeft, UserPlus, Check, Clock, Waves, MessageCircle,
+  Megaphone, Calendar, Trophy, Camera, CalendarCheck, LogIn, LogOut, KeyRound
 } from "lucide-react";
 import { CATEGORIES, POSICIONES, styles, emptyTotals, fmtDate, todayISO, loadFont, requestNotificationPermission, notify, resizeImageToBase64, fundamentosFor } from "./shared.js";
 import { subJugadores, subRegistros, subMensajes, subPartidos, subAnuncios, subAsistencias, crearSolicitud } from "./db.js";
@@ -10,8 +10,10 @@ import ChatView from "./ChatView.jsx";
 import Avatar from "./Avatar.jsx";
 import ProgressChart from "./ProgressChart.jsx";
 
+const SESSION_KEY = "atlantis-mi-perfil-id";
+
 export default function StudentApp({ onBack }) {
-  const [view, setView] = useState("menu"); // menu | crear | enviado | misStats | chat | anuncios | calendario
+  const [view, setView] = useState("menu"); // menu | crear | enviado | login | misStats | chat | anuncios | calendario
   const [jugadores, setJugadores] = useState([]);
   const [registros, setRegistros] = useState([]);
   const [mensajes, setMensajes] = useState([]);
@@ -19,7 +21,9 @@ export default function StudentApp({ onBack }) {
   const [anuncios, setAnuncios] = useState([]);
   const [asistencias, setAsistencias] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [myIdentity, setMyIdentity] = useState(null); // { name, category }
+  const [myPlayerId, setMyPlayerId] = useState(() => {
+    try { return window.localStorage.getItem(SESSION_KEY) || null; } catch { return null; }
+  });
 
   useEffect(() => {
     loadFont();
@@ -33,21 +37,43 @@ export default function StudentApp({ onBack }) {
     return () => { u1(); u2(); u3(); u4(); u5(); u6(); };
   }, []);
 
+  const myPlayer = useMemo(
+    () => jugadores.find((p) => p.id === myPlayerId) || null,
+    [jugadores, myPlayerId]
+  );
+
+  // Si el id guardado ya no existe (perfil eliminado), cerramos sesión localmente.
+  useEffect(() => {
+    if (!loading && myPlayerId && jugadores.length > 0 && !myPlayer) {
+      logout();
+    }
+  }, [loading, myPlayerId, jugadores, myPlayer]);
+
+  const login = (player) => {
+    setMyPlayerId(player.id);
+    try { window.localStorage.setItem(SESSION_KEY, player.id); } catch {}
+  };
+  const logout = () => {
+    setMyPlayerId(null);
+    try { window.localStorage.removeItem(SESSION_KEY); } catch {}
+    setView("menu");
+  };
+
   // Notificaciones: mensajes nuevos en el chat de mi categoría, de alguien más
   const seenMensajes = useRef(null);
   useEffect(() => {
     const ids = new Set(mensajes.map((m) => m.id));
-    if (seenMensajes.current && myIdentity) {
+    if (seenMensajes.current && myPlayer) {
       mensajes.forEach((m) => {
         const isNew = !seenMensajes.current.has(m.id);
-        const isMine = m.authorName === myIdentity.name && m.authorRole === "estudiante";
-        if (isNew && !isMine && m.category === myIdentity.category) {
+        const isMine = m.authorName === myPlayer.name && m.authorRole === "estudiante";
+        if (isNew && !isMine && m.category === myPlayer.category) {
           notify(`${m.authorName} · ${m.category}`, m.text);
         }
       });
     }
     seenMensajes.current = ids;
-  }, [mensajes, myIdentity]);
+  }, [mensajes, myPlayer]);
 
   // Notificaciones: anuncios nuevos que apliquen a mi categoría
   const seenAnuncios = useRef(null);
@@ -56,14 +82,14 @@ export default function StudentApp({ onBack }) {
     if (seenAnuncios.current) {
       anuncios.forEach((a) => {
         const isNew = !seenAnuncios.current.has(a.id);
-        const applies = a.category === "Todas" || !myIdentity || a.category === myIdentity.category;
+        const applies = a.category === "Todas" || !myPlayer || a.category === myPlayer.category;
         if (isNew && applies) {
           notify("Nuevo anuncio", a.text);
         }
       });
     }
     seenAnuncios.current = ids;
-  }, [anuncios, myIdentity]);
+  }, [anuncios, myPlayer]);
 
   const totalsFor = useCallback(
     (playerId, matchId = null) => {
@@ -79,6 +105,10 @@ export default function StudentApp({ onBack }) {
     [registros]
   );
 
+  const goProtected = (target) => {
+    setView(myPlayer ? target : "login");
+  };
+
   return (
     <div style={styles.app} className="atlantis-shell">
       <div style={styles.header}>
@@ -87,53 +117,73 @@ export default function StudentApp({ onBack }) {
             <ChevronLeft size={20} color="#7FA0B0" />
           </button>
           <img src="/logo.png" alt="Atlantis Academy" style={{ width: 30, height: 30, objectFit: "contain" }} />
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={styles.brand}>ATLANTIS ACADEMY</div>
             <div style={styles.tabTitle}>Estudiantes</div>
           </div>
+          {myPlayer && view === "menu" && (
+            <button style={styles.iconBtn} onClick={logout} title="Cerrar sesión">
+              <LogOut size={18} color="#7FA0B0" />
+            </button>
+          )}
         </div>
       </div>
 
       <div style={styles.content}>
-        {view === "menu" && <MenuView setView={setView} />}
+        {view === "menu" && <MenuView myPlayer={myPlayer} setView={setView} goProtected={goProtected} />}
         {view === "crear" && <CrearPerfilView onDone={() => setView("enviado")} />}
         {view === "enviado" && <EnviadoView onBack={() => setView("menu")} />}
-        {view === "misStats" && (
-          <MisStatsView
+        {view === "login" && (
+          <LoginView
             jugadores={jugadores}
             loading={loading}
-            totalsFor={totalsFor}
-            partidos={partidos}
-            asistencias={asistencias}
+            onSuccess={(p) => { login(p); setView("menu"); }}
+            onCancel={() => setView("menu")}
           />
         )}
-        {view === "chat" && (
-          <ChatEntryView
-            jugadores={jugadores}
-            loading={loading}
-            mensajes={mensajes}
-            onIdentify={(p) => setMyIdentity({ name: p.name, category: p.category })}
-          />
+        {view === "misStats" && myPlayer && (
+          <MisStatsView player={myPlayer} totalsFor={totalsFor} partidos={partidos} asistencias={asistencias} />
         )}
-        {view === "anuncios" && <AnnouncementsView anuncios={anuncios} />}
-        {view === "calendario" && <CalendarView partidos={partidos} />}
+        {view === "chat" && myPlayer && (
+          <div>
+            <ChatView mensajes={mensajes} category={myPlayer.category} authorName={myPlayer.name} authorRole="estudiante" />
+          </div>
+        )}
+        {view === "anuncios" && <AnnouncementsView anuncios={anuncios} defaultCategory={myPlayer?.category} />}
+        {view === "calendario" && <CalendarView partidos={partidos} defaultCategory={myPlayer?.category} />}
       </div>
     </div>
   );
 }
 
-function MenuView({ setView }) {
+function MenuView({ myPlayer, setView, goProtected }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
+      {myPlayer && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+          <Avatar player={myPlayer} size={48} />
+          <div>
+            <div style={styles.playerName}>Hola, {myPlayer.name}</div>
+            <div style={styles.playerMeta}>{myPlayer.category}{myPlayer.posicion ? " · " + myPlayer.posicion : ""}</div>
+          </div>
+        </div>
+      )}
+
+      {!myPlayer && (
+        <button style={styles.landingBtn} onClick={() => setView("login")}>
+          <LogIn size={22} color="#3FB8AE" />
+          Iniciar sesión con mi código
+        </button>
+      )}
       <button style={styles.landingBtn} onClick={() => setView("crear")}>
         <UserPlus size={22} color="#D9A544" />
         Crear mi perfil
       </button>
-      <button style={styles.landingBtn} onClick={() => setView("misStats")}>
-        <Search size={22} color="#3FB8AE" />
+      <button style={styles.landingBtn} onClick={() => goProtected("misStats")}>
+        <Trophy size={22} color="#3FB8AE" />
         Ver mis estadísticas
       </button>
-      <button style={styles.landingBtn} onClick={() => setView("chat")}>
+      <button style={styles.landingBtn} onClick={() => goProtected("chat")}>
         <MessageCircle size={22} color="#7BC67E" />
         Chatear con mi categoría
       </button>
@@ -145,6 +195,54 @@ function MenuView({ setView }) {
         <Calendar size={22} color="#3FB8AE" />
         Calendario
       </button>
+    </div>
+  );
+}
+
+function LoginView({ jugadores, loading, onSuccess, onCancel }) {
+  const [codigo, setCodigo] = useState("");
+  const [error, setError] = useState(null);
+
+  const submit = () => {
+    const match = jugadores.find((p) => p.codigo === codigo.trim());
+    if (match) {
+      onSuccess(match);
+    } else {
+      setError("Código incorrecto. Pídeselo a tu profesor(a).");
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <div style={styles.emptyIconWrap}>
+          <KeyRound size={24} color="#D9A544" />
+        </div>
+        <div style={{ ...styles.sectionLabel, textAlign: "center" }}>
+          Escribe el código de 4 dígitos que te dio tu profesor(a)
+        </div>
+      </div>
+      <input
+        style={{ ...styles.input, textAlign: "center", fontSize: 22, letterSpacing: 6 }}
+        placeholder="0000"
+        inputMode="numeric"
+        maxLength={4}
+        value={codigo}
+        onChange={(e) => { setCodigo(e.target.value.replace(/\D/g, "")); setError(null); }}
+        onKeyDown={(e) => e.key === "Enter" && submit()}
+        disabled={loading}
+      />
+      {error && <div style={{ color: "#E2664B", fontSize: 12, marginBottom: 10, textAlign: "center" }}>{error}</div>}
+      <div style={styles.rowGap}>
+        <button style={styles.primaryBtn} onClick={submit} disabled={loading || codigo.length < 4}>
+          <LogIn size={16} /> {loading ? "Cargando..." : "Entrar"}
+        </button>
+        <button style={styles.ghostBtn} onClick={onCancel}>Cancelar</button>
+      </div>
+      <div style={{ ...styles.emptyText, marginTop: 16, textAlign: "center" }}>
+        ¿Todavía no tienes código? Primero crea tu perfil y espera a que tu profesor(a) lo apruebe —
+        ahí te va a dar tu código personal.
+      </div>
     </div>
   );
 }
@@ -184,7 +282,8 @@ function CrearPerfilView({ onDone }) {
   return (
     <div>
       <div style={{ ...styles.sectionLabel, marginBottom: 12 }}>
-        Llena tus datos. Tu profesor(a) va a aprobar tu perfil antes de que aparezca.
+        Llena tus datos. Tu profesor(a) va a aprobar tu perfil y te va a dar un código personal
+        para entrar solo a tus propias estadísticas.
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
@@ -255,11 +354,13 @@ function CrearPerfilView({ onDone }) {
 function EnviadoView({ onBack }) {
   return (
     <div style={styles.emptyState}>
-      <Clock size={30} color="#D9A544" />
+      <div style={styles.emptyIconWrap}>
+        <Clock size={24} color="#D9A544" />
+      </div>
       <div style={{ ...styles.playerName, marginTop: 6 }}>¡Perfil enviado!</div>
       <div style={styles.emptyText}>
-        Tu profesor(a) va a revisar y aprobar tu perfil pronto. Después de eso vas a poder
-        ver tus estadísticas en "Ver mis estadísticas".
+        Tu profesor(a) va a revisar tu perfil y darte un código personal de 4 dígitos.
+        Con ese código vas a poder entrar solo a tus propias estadísticas, en "Iniciar sesión".
       </div>
       <button style={{ ...styles.ghostBtn, marginTop: 10 }} onClick={onBack}>
         Volver al menú
@@ -268,205 +369,51 @@ function EnviadoView({ onBack }) {
   );
 }
 
-function ChatEntryView({ jugadores, loading, mensajes, onIdentify }) {
-  const [category, setCategory] = useState("Todas");
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState(null);
-
-  const filtered = useMemo(() => {
-    let list = jugadores;
-    if (category !== "Todas") list = list.filter((p) => p.category === category);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(q));
-    }
-    return list;
-  }, [jugadores, category, query]);
-
-  if (loading) {
-    return (
-      <div style={styles.emptyState}>
-        <Waves size={26} color="#2B4F5F" />
-        <div style={styles.emptyText}>Cargando...</div>
-      </div>
-    );
-  }
-
-  if (selected) {
-    return (
-      <div>
-        <button style={{ ...styles.ghostBtn, marginBottom: 14 }} onClick={() => setSelected(null)}>
-          ← Salir del chat
-        </button>
-        <ChatView
-          mensajes={mensajes}
-          category={selected.category}
-          authorName={selected.name}
-          authorRole="estudiante"
-        />
-      </div>
-    );
-  }
+function MisStatsView({ player, totalsFor, partidos, asistencias }) {
+  const totals = totalsFor(player.id);
+  const total = Object.values(totals).reduce((s, t) => s + t.acierto + t.error, 0);
+  const misPartidos = partidos.filter((m) => m.category === player.category);
+  const mvpCount = misPartidos.filter((m) => m.mvpId === player.id).length;
+  const misAsistencias = asistencias.filter((a) => a.playerId === player.id);
+  const presentes = misAsistencias.filter((a) => a.presente).length;
+  const asistenciaPct = misAsistencias.length ? Math.round((presentes / misAsistencias.length) * 100) : null;
 
   return (
     <div>
-      <div style={{ ...styles.sectionLabel, marginBottom: 12 }}>
-        Busca tu nombre para entrar al chat de tu categoría.
-      </div>
-      <div style={styles.chipsRow}>
-        {["Todas", ...CATEGORIES].map((c) => (
-          <button
-            key={c}
-            onClick={() => setCategory(c)}
-            style={{ ...styles.chip, ...(category === c ? styles.chipActive : {}) }}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-      <div style={styles.searchWrap}>
-        <Search size={15} color="#7FA0B0" />
-        <input
-          style={styles.searchInput}
-          placeholder="Busca tu nombre..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      {filtered.length === 0 && (
-        <div style={styles.emptyText}>
-          No encontramos tu nombre. Si acabas de crear tu perfil, espera a que tu profesor(a) lo apruebe.
-        </div>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.map((p) => (
-          <div key={p.id} style={{ ...styles.playerRow, cursor: "pointer" }} onClick={() => { setSelected(p); onIdentify(p); }}>
-            <Avatar player={p} />
-            <div>
-              <div style={styles.playerName}>{p.name}</div>
-              <div style={styles.playerMeta}>{p.category}{p.posicion ? " · " + p.posicion : ""}</div>
-            </div>
+      <div style={styles.card}>
+        <div style={styles.playerRow}>
+          <Avatar player={player} size={44} />
+          <div>
+            <div style={styles.playerName}>{player.name}</div>
+            <div style={styles.playerMeta}>{player.category}{player.posicion ? " · " + player.posicion : ""} · {total} acciones registradas</div>
           </div>
-        ))}
+        </div>
+
+        {(mvpCount > 0 || asistenciaPct !== null) && (
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            {mvpCount > 0 && (
+              <div style={{ ...styles.mvpBtn, ...styles.mvpBtnActive }}>
+                <Trophy size={13} /> MVP x{mvpCount}
+              </div>
+            )}
+            {asistenciaPct !== null && (
+              <div style={styles.attendanceBtn}>
+                <CalendarCheck size={13} /> Asistencia {asistenciaPct}% ({presentes}/{misAsistencias.length})
+              </div>
+            )}
+          </div>
+        )}
+
+        <StatSummaryTiles totals={totals} fundamentos={fundamentosFor(player)} />
+        <PlayerBars totals={totals} fundamentos={fundamentosFor(player)} />
+        <ProgressChart playerId={player.id} matches={misPartidos} totalsFor={totalsFor} />
       </div>
     </div>
   );
 }
 
-function MisStatsView({ jugadores, loading, totalsFor, partidos, asistencias }) {
-  const [category, setCategory] = useState("Todas");
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState(null);
-
-  const filtered = useMemo(() => {
-    let list = jugadores;
-    if (category !== "Todas") list = list.filter((p) => p.category === category);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(q));
-    }
-    return list;
-  }, [jugadores, category, query]);
-
-  if (loading) {
-    return (
-      <div style={styles.emptyState}>
-        <Waves size={26} color="#2B4F5F" />
-        <div style={styles.emptyText}>Cargando...</div>
-      </div>
-    );
-  }
-
-  if (selected) {
-    const totals = totalsFor(selected.id);
-    const total = Object.values(totals).reduce((s, t) => s + t.acierto + t.error, 0);
-    const misPartidos = partidos.filter((m) => m.category === selected.category);
-    const mvpCount = misPartidos.filter((m) => m.mvpId === selected.id).length;
-    const misAsistencias = asistencias.filter((a) => a.playerId === selected.id);
-    const presentes = misAsistencias.filter((a) => a.presente).length;
-    const asistenciaPct = misAsistencias.length ? Math.round((presentes / misAsistencias.length) * 100) : null;
-
-    return (
-      <div>
-        <button style={{ ...styles.ghostBtn, marginBottom: 14 }} onClick={() => setSelected(null)}>
-          ← Buscar otro nombre
-        </button>
-        <div style={styles.card}>
-          <div style={styles.playerRow}>
-            <Avatar player={selected} size={44} />
-            <div>
-              <div style={styles.playerName}>{selected.name}</div>
-              <div style={styles.playerMeta}>{selected.category}{selected.posicion ? " · " + selected.posicion : ""} · {total} acciones registradas</div>
-            </div>
-          </div>
-
-          {(mvpCount > 0 || asistenciaPct !== null) && (
-            <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-              {mvpCount > 0 && (
-                <div style={{ ...styles.mvpBtn, ...styles.mvpBtnActive }}>
-                  <Trophy size={13} /> MVP x{mvpCount}
-                </div>
-              )}
-              {asistenciaPct !== null && (
-                <div style={styles.attendanceBtn}>
-                  <CalendarCheck size={13} /> Asistencia {asistenciaPct}% ({presentes}/{misAsistencias.length})
-                </div>
-              )}
-            </div>
-          )}
-
-          <StatSummaryTiles totals={totals} fundamentos={fundamentosFor(selected)} />
-          <PlayerBars totals={totals} fundamentos={fundamentosFor(selected)} />
-          <ProgressChart playerId={selected.id} matches={misPartidos} totalsFor={totalsFor} />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div style={styles.chipsRow}>
-        {["Todas", ...CATEGORIES].map((c) => (
-          <button
-            key={c}
-            onClick={() => setCategory(c)}
-            style={{ ...styles.chip, ...(category === c ? styles.chipActive : {}) }}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-      <div style={styles.searchWrap}>
-        <Search size={15} color="#7FA0B0" />
-        <input
-          style={styles.searchInput}
-          placeholder="Busca tu nombre..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      {filtered.length === 0 && (
-        <div style={styles.emptyText}>
-          No encontramos tu nombre. Si acabas de crear tu perfil, espera a que tu profesor(a) lo apruebe.
-        </div>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.map((p) => (
-          <div key={p.id} style={{ ...styles.playerRow, cursor: "pointer" }} onClick={() => setSelected(p)}>
-            <Avatar player={p} />
-            <div>
-              <div style={styles.playerName}>{p.name}</div>
-              <div style={styles.playerMeta}>{p.category}{p.posicion ? " · " + p.posicion : ""}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AnnouncementsView({ anuncios }) {
-  const [category, setCategory] = useState("Todas");
+function AnnouncementsView({ anuncios, defaultCategory }) {
+  const [category, setCategory] = useState(defaultCategory || "Todas");
 
   const filtered = anuncios
     .filter((a) => category === "Todas" || a.category === "Todas" || a.category === category)
@@ -500,8 +447,8 @@ function AnnouncementsView({ anuncios }) {
   );
 }
 
-function CalendarView({ partidos }) {
-  const [category, setCategory] = useState("Todas");
+function CalendarView({ partidos, defaultCategory }) {
+  const [category, setCategory] = useState(defaultCategory || "Todas");
   const today = todayISO();
 
   const filtered = partidos
